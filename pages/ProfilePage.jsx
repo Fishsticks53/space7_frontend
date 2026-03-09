@@ -92,12 +92,12 @@ const spaces = [
             </TouchableOpacity>
           </View>
           <View style={styles.sparkle}>
-            <Ionicons name="sparkles-sharp" size={35} color="black" />
-            <Ionicons name="sparkles-sharp" size={35} color="black" />
-            <Ionicons name="sparkles-sharp" size={35} color="black" />
-            <Ionicons name="sparkles-sharp" size={35} color="black" />
-            <Ionicons name="sparkles-sharp" size={35} color="black" />
-            <Ionicons name="sparkles-sharp" size={35} color="black" />
+            <Ionicons name="sparkles-sharp" size={32} color="black" />
+            <Ionicons name="sparkles-sharp" size={32} color="black" />
+            <Ionicons name="sparkles-sharp" size={32} color="black" />
+            <Ionicons name="sparkles-sharp" size={32} color="black" />
+            <Ionicons name="sparkles-sharp" size={32} color="black" />
+            <Ionicons name="sparkles-sharp" size={32} color="black" />
           </View>
         </View>
         <View style={styles.bottom}>
@@ -309,16 +309,24 @@ const spaces = [
                   </View>
 
                   <View style={styles.spaceTagsRow}>
-                    {space.tags.map((tag) => (
-                      <View key={`${space.id}-${tag}`} style={[styles.spaceTag,{backgroundColor:colors[space.id % colors.length]}]}>
-                        <Text>#{tag}</Text>
-                      </View>
-                    ))}
+                    {space.tags.map((tag, tagIndex) => {
+                      const cardColorIndex = space.id % colors.length;
+                      const availableColors = colors.filter((_, index) => index !== cardColorIndex);
+                      const tagColor = availableColors[tagIndex % availableColors.length];
+                      return (
+                        <View key={`${space.id}-${tag}`} style={[styles.spaceTag, {backgroundColor: tagColor}]}>
+                          <Text>#{tag}</Text>
+                        </View>
+                      );
+                    })}
                   </View>
                 </View>
               </TouchableOpacity>
             ))}
           </View>
+          <TouchableOpacity style={styles.logoutButton}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </Screen>
@@ -354,10 +362,12 @@ const styles = StyleSheet.create({
   sparkle: {
     display: "flex",
     flexDirection: "row",
-    justifyContent: "space-evenly",
-    paddingHorizontal: 30,
-    paddingTop: 40,
-    gap:25
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 35,
+    paddingBottom: 10,
+    gap: 12,
   },
   bottom: {
     width: "100%",
@@ -491,5 +501,21 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     fontWeight: "bold",
     fontSize: 15,
+  },
+  logoutButton: {
+    backgroundColor: "#fc55aa",
+    borderWidth: 3,
+    borderColor: "black",
+    borderRadius: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  logoutButtonText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "black",
+    textAlign: "center",
   },
 });
