@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Button, Text, View, StyleSheet, TextInput } from "react-native";
+import { Text, View, StyleSheet, TextInput, TouchableOpacity, Alert } from "react-native";
 import Screen from "../components/Screen";
 import { useRouter } from "expo-router";
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import Octicons from '@expo/vector-icons/Octicons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import {useAuth} from "../context/authContext";
+
+
 import { useFonts,
   Outfit_400Regular,
   Outfit_600SemiBold,
@@ -15,8 +18,14 @@ import { useFonts,
 
 export default function NewSpace() {
   const maxChars = 400;
+  const maxTags = 10;
   const [description, setDescription] = useState("");
-
+  const [title, setTitle] = useState("");
+  const [tags, setTags] = useState([]);
+  const {createSpaces} = useAuth();
+  const [currentTag, setCurrentTag] = useState("");
+  const [visibility, setVisibility] = useState("public");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
     Outfit_600SemiBold,
@@ -27,18 +36,63 @@ export default function NewSpace() {
     return null;
   }
 
+  const handleTagChange = () => {
+    const normalized = currentTag.replace(/^#/, "").trim();
+    if (!normalized || tags.length >= maxTags || tags.includes(normalized)) {
+      return;
+    }
+    setTags((prev) => [...prev, normalized]);
+    setCurrentTag("");
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setTags((prev) => prev.filter((tag) => tag !== tagToRemove));
+  };
+
+  const handleCreate = async () => {
+    const cleanTitle = title.trim();
+    const cleanDescription = description.trim();
+
+    if (cleanTitle.length < 3 || cleanTitle.length > 200) {
+      Alert.alert("Invalid title", "Title must be between 3 and 200 characters.");
+      return;
+    }
+    if (cleanDescription.length < 10) {
+      Alert.alert("Invalid description", "Description must be at least 10 characters.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await createSpaces(cleanTitle, cleanDescription, visibility, tags);
+      router.push("/(tabs)");
+    } catch (error) {
+      Alert.alert("Create space failed", error?.message || "Something went wrong.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const router = useRouter();
   return (
     <Screen>
       <View style={styles.top}>
         <Text style={styles.title}>Space7</Text>
-        <Ionicons name="close" size={40} color="black" style={styles.top.close} onPress={()=>{router.push("/(tabs)")}} />
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.closeButton}
+          onPress={() => {
+            router.push("/(tabs)");
+          }}
+        >
+          <Ionicons name="close" size={40} color="black" />
+        </TouchableOpacity>
       </View>
       <View style={styles.topic}>
         <Text style={styles.topicText}>New Topic</Text>
       </View>
       <View style={styles.titleCard}><Text style={{fontFamily:'Outfit_700Bold',fontSize:26,paddingHorizontal:10}}>Title</Text></View>
-      <TextInput placeholder="  Enter topic title..." style={styles.titleInput}></TextInput>
+      <TextInput placeholder="  Enter topic title..." style={styles.titleInput} onChangeText={setTitle} value={title}></TextInput>
       <View style={styles.descriptionCard}><Text style={{fontFamily:'Outfit_700Bold',fontSize:26,paddingHorizontal:10}}>Description</Text></View>
       <View style={styles.descriptionInput}>
         <TextInput
@@ -55,15 +109,63 @@ export default function NewSpace() {
           {description.length} / {maxChars}
         </Text>
       </View>
-      <View style={{position:'realtive'}}>
+      <View style={{position:'relative'}}>
         <View style={styles.hastagTab}><Text style={{alignSelf:'center', marginTop:2, fontFamily:'Outfit_700Bold',fontSize:20}}>#Hastags</Text></View>
-        <View style={styles.hastag}><TextInput placeholder="#Add Hastags" style={styles.search}></TextInput><FontAwesome5 name="plus" size={24} color="black" style={styles.search.plusIcon}/></View>
+        <View style={styles.hastag}>
+          <View style={styles.tagInputRow}>
+            <TextInput
+              placeholder="#Add Hastags"
+              style={styles.search}
+              onChangeText={setCurrentTag}
+              value={currentTag}
+            />
+            <TouchableOpacity activeOpacity={0.7} onPress={handleTagChange} style={styles.plusIcon}>
+              <FontAwesome5 name="plus" size={20} color="black" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.tagsContainer}>
+            {tags.map((tag) => (
+              <View key={tag} style={styles.tagChip}>
+                <Text style={styles.tagText}>#{tag}</Text>
+                <TouchableOpacity activeOpacity={0.7} onPress={() => handleRemoveTag(tag)}>
+                  <Ionicons name="close" size={16} color="black" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </View>
       </View>
       <View style={styles.statusIconSection}>
-        <View style={[styles.statusIcon,{backgroundColor:"#5dd76d"}]}><Octicons name="globe" size={24} color="black" /><Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Public</Text></View>
-        <View style={[styles.statusIcon,{backgroundColor:"#fc2e99"}]}><MaterialIcons name="lock-outline" size={24} color="black" /><Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Private</Text></View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setVisibility("public")}
+          style={[
+            styles.statusIcon,
+            { backgroundColor: "#5dd76d" },
+            visibility === "public" && styles.statusSelected,
+          ]}
+        >
+          <Octicons name={visibility === "public" ? "dot-fill" : "circle"} size={18} color="black" />
+          <Octicons name="globe" size={24} color="black" />
+          <Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Public</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setVisibility("private")}
+          style={[
+            styles.statusIcon,
+            { backgroundColor: "#fc2e99" },
+            visibility === "private" && styles.statusSelected,
+          ]}
+        >
+          <Octicons name={visibility === "private" ? "dot-fill" : "circle"} size={18} color="black" />
+          <MaterialIcons name="lock-outline" size={24} color="black" />
+          <Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Private</Text>
+        </TouchableOpacity>
       </View>
-      <View style={styles.createButton}><Text style={{fontFamily:'Outfit_700Bold',fontSize:26}}>Create</Text></View>
+      <TouchableOpacity activeOpacity={0.7} style={styles.createButton} onPress={handleCreate} disabled={isSubmitting}>
+        <Text style={{fontFamily:'Outfit_700Bold',fontSize:26}}>{isSubmitting ? "Creating..." : "Create"}</Text>
+      </TouchableOpacity>
     </Screen>
   );
 }
@@ -77,12 +179,12 @@ const styles = StyleSheet.create({
     alignItems:"center",
     paddingHorizontal:15,
     paddingVertical:30,
-    close:{
-      backgroundColor:"#fc2e99",
-      borderWidth:3,
-      borderColor:'black',
-      borderRadius:8,
-    },
+  },
+  closeButton:{
+    backgroundColor:"#fc2e99",
+    borderWidth:3,
+    borderColor:'black',
+    borderRadius:8,
   },
   topic:{
       backgroundColor:"#feda00",
@@ -165,12 +267,11 @@ const styles = StyleSheet.create({
     borderRadius:20,
     borderTopStartRadius:0,
     display:'flex',
-    flexDirection:'row',
-    alignItems:'center',
+    flexDirection:'column',
+    alignItems:'flex-start',
     position:'relative',
-    justifyContent:'center'
-
-    
+    justifyContent:'flex-start',
+    padding:12,
   },
   hastagTab:{
       backgroundColor:"#feda00",
@@ -190,19 +291,51 @@ const styles = StyleSheet.create({
     },
     search:{
       backgroundColor:'white',
-      width:'80%',
+      flex:1,
       paddingHorizontal:5,
       borderRadius:10,
       borderWidth:3,
       borderColor:'black',
-      plusIcon:{
-        backgroundColor:'#27a6fd',
-        padding:8.5,
-        borderRadius:5,
-        borderWidth:2,
-        borderRadius:10,
-        marginLeft:10,
-      }
+      fontFamily:'Outfit_400Regular',
+    },
+    tagInputRow:{
+      width:'100%',
+      display:'flex',
+      flexDirection:'row',
+      alignItems:'center',
+      gap:10,
+      justifyContent:'flex-start',
+    },
+    plusIcon:{
+      backgroundColor:'#27a6fd',
+      padding:8.5,
+      borderWidth:2,
+      borderRadius:10,
+    },
+    tagsContainer:{
+      width:'100%',
+      display:'flex',
+      flexDirection:'row',
+      flexWrap:'wrap',
+      gap:8,
+      marginTop:8,
+      marginLeft:0,
+    },
+    tagChip:{
+      backgroundColor:'white',
+      borderWidth:2,
+      borderColor:'black',
+      borderRadius:20,
+      paddingVertical:4,
+      paddingHorizontal:10,
+      display:'flex',
+      flexDirection:'row',
+      alignItems:'center',
+      gap:6,
+    },
+    tagText:{
+      fontFamily:'Outfit_600SemiBold',
+      fontSize:14,
     },
     statusIcon:{
       display:'flex',
@@ -215,11 +348,14 @@ const styles = StyleSheet.create({
       paddingHorizontal:25,
       justifyContent:'center',
     },
+    statusSelected:{
+      borderWidth:3,
+    },
     statusIconSection:{
       display:'flex',
       flexDirection:'row',
       justifyContent:'center',
-      gap:70,
+      gap:20,
       marginTop:20,
     },
     createButton:{

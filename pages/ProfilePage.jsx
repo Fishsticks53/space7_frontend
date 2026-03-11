@@ -1,18 +1,34 @@
-import { Button, Text, View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { Button, Text, View, StyleSheet, TouchableOpacity, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import Screen from "../components/Screen";
 import Feather from "@expo/vector-icons/Feather";
 import Entypo from "@expo/vector-icons/Entypo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import {useAuth} from "../context/authContext";
+import { useState, useEffect } from "react";
 
 export default function ProfilePage() {
   const router = useRouter();
 
   const colors=['#fc55aa','#27a6fd','#feda00','#5dd76d'];
+  const {signOut, profileDetails} = useAuth();
+  const [user, setUser] = useState({});
+  const handleLogout = async () => {
+    await signOut();
+    router.replace("/Login");
+  };
+
+  useEffect( ()=>{
+      const getProfile = async ()=>{
+      const data = await profileDetails();
+      setUser(data);
+    };
+    getProfile();
+  },[])
 
   const details = {
-    username: "Meera",
+    username: user?.username || "User",
     image: "😇",
     description: "Startup Enthusiast 🚀 Book Lover 📖",
     spaces: 7,
@@ -89,6 +105,9 @@ const spaces = [
               }}
             >
               <Entypo name="dots-three-horizontal" size={30} color="black" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.sparkle}>
@@ -324,9 +343,7 @@ const spaces = [
               </TouchableOpacity>
             ))}
           </View>
-          <TouchableOpacity style={styles.logoutButton}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
+          
         </View>
       </ScrollView>
     </Screen>
@@ -358,6 +375,8 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "row",
     justifyContent: "space-between",
+    justifyContent:"center",
+    alignItems:"center"
   },
   sparkle: {
     display: "flex",
@@ -506,14 +525,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fc55aa",
     borderWidth: 3,
     borderColor: "black",
-    borderRadius: 15,
-    paddingVertical: 12,
-    paddingHorizontal: 40,
+    borderRadius: 12,
+    padding:6,
     alignSelf: "center",
-    marginBottom: 20,
+    marginLeft: 20,
   },
   logoutButtonText: {
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: "bold",
     color: "black",
     textAlign: "center",
