@@ -147,7 +147,15 @@ export default function ProfilePage() {
               const tags = Array.isArray(space?.tags) ? space.tags : [];
 
               return (
-                <TouchableOpacity key={space?.space_id || space?.id || `${space?.title}-${index}`}>
+                <TouchableOpacity
+                  key={space?.space_id || space?.id || `${space?.title}-${index}`}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const id = space?.space_id || space?.id;
+                    if (!id) return;
+                    router.push({ pathname: "/chat", params: { spaceId: id } });
+                  }}
+                >
                   <View style={[styles.spaceCard, { backgroundColor: colors[index % colors.length] }]}>
                     <View style={styles.spaceCardTopRow}>
                       <Text style={styles.spaceTitle}>{space?.title || "Untitled Space"}</Text>

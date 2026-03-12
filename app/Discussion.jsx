@@ -94,7 +94,16 @@ export default function MyDiscussion() {
               (Array.isArray(space?.members) ? space.members.length : 0);
 
             return (
-              <View key={space?.space_id || space?.id || `${space?.title}-${index}`} style={[styles.card,{backgroundColor:cardColors[index%5]}]}>
+              <TouchableOpacity
+                key={space?.space_id || space?.id || `${space?.title}-${index}`}
+                activeOpacity={0.7}
+                onPress={() => {
+                  const id = space?.space_id || space?.id;
+                  if (!id) return;
+                  router.push({ pathname: "/chat", params: { spaceId: id } });
+                }}
+                style={[styles.card,{backgroundColor:cardColors[index%5]}]}
+              >
                 <View style={styles.cardTitleRow}>
                   <MaterialCommunityIcons name={iconName} size={24} color="#111" />
                   <Text style={styles.cardTitle}>{space?.title || "Untitled Space"}</Text>
@@ -116,9 +125,8 @@ export default function MyDiscussion() {
                     <Text style={[styles.tag, styles.tagBlue]}>#general</Text>
                   ) : (
                     tags.map((tag, idx) => (
-                      <View>
+                      <View key={`${space?.space_id || "space"}-wrap-${tag?.tag_id || idx}`}>
                         <Text
-                          key={`${space?.space_id || "space"}-${tag?.tag_id || idx}`}
                           style={[styles.tag, idx % 2 === 0 ? styles.tagBlue : styles.tagGreen]}
                         >
                           #{String(tag?.tag_name || "").replace(/^#/, "")}
@@ -128,7 +136,7 @@ export default function MyDiscussion() {
                   )}
                   <Text style={[styles.tag, styles.tagVisibility]}>{space?.visibility || "public"}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </ScrollView>

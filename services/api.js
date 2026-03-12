@@ -135,3 +135,67 @@ export async function recommendedSpaces(authToken, limit = 10) {
     },
   });
 }
+
+export async function spaceDetails(spaceId, authToken) {
+  if (!spaceId) {
+    throw new Error("Missing space id.");
+  }
+
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request(`/spaces/${spaceId}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getMessages(spaceId, authToken) {
+  if (!spaceId) {
+    throw new Error("Missing space id.");
+  }
+
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request(`/messages/${spaceId}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+}
+
+export async function sendMessage(spaceId, content, authToken) {
+  if (!spaceId) {
+    throw new Error("No spaceId provided");
+  }
+  if (!content || !content.trim()) {
+    throw new Error("Message cannot be empty.");
+  }
+
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request(`/messages/${spaceId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({ content: content.trim() }),
+  });
+}
+
+// Backward-compatible alias in case older imports still use the typo.
+export const sendMessge = sendMessage;

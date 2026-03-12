@@ -1,0 +1,228 @@
+import { useState, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import Screen from "../components/Screen";
+import { getMessages, sendMessage, spaceDetails } from "../services/api";
+import {
+  useFonts,
+  Outfit_400Regular,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+} from "@expo-google-fonts/outfit";
+
+export default function ChatPage() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const spaceId = params?.spaceId || params?.spaceid;
+  const [draft, setDraft] = useState("");
+  const [spaceInfo, setSpaceInfo] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+  });
+
+  const sendmessage = async () => {
+    const text = draft.trim();
+    if (!text) {
+      return;
+    }
+
+    try {
+      const created = await sendMessage(spaceId, text);
+      setMessages((prev) => [created, ...prev]);
+      setDraft("");
+    }
+    catch (error) {
+      Alert.alert("Send failed", error?.message || "Something went wrong.");
+    }
+  };
+
+  useEffect(() => {
+    const loadChatData = async () => {
+      if (!spaceId) {
+        return;
+      }
+
+      try {
+        const [spaceData, messageData] = await Promise.all([
+          spaceDetails(spaceId),
+          getMessages(spaceId),
+        ]);
+
+        setSpaceInfo(spaceData || null);
+        const list = Array.isArray(messageData)
+          ? messageData
+          : messageData?.messages || [];
+        setMessages(list);
+      } catch (error) {
+        Alert.alert("Load failed", error?.message || "Something went wrong.");
+        setSpaceInfo(null);
+        setMessages([]);
+      }
+    };
+
+    loadChatData();
+  }, [spaceId]);
+
+  if (!fontsLoaded) return null;
+
+  return (
+    <Screen>
+      <View style={styles.top}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.backButton}
+          onPress={() => router.push("/(tabs)")}
+        >
+          <Ionicons name="arrow-back" size={28} color="#111" />
+        </TouchableOpacity>
+        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+          {spaceInfo?.title || "Chat"}
+        </Text>
+      </View>
+
+      <View style={styles.topic}>
+        <Text style={styles.topicText}>Conversation</Text>
+      </View>
+
+      <ScrollView
+        style={styles.chatArea}
+        contentContainerStyle={styles.chatContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {messages.map((message, index) => (
+          <View key={message?.message_id || message?.id || String(index)} style={styles.messageRow}>
+            <View style={styles.bubble}>
+              <Text style={styles.senderName}>
+                @{message?.sender?.username || message?.name || "user"}
+              </Text>
+              <Text style={styles.messageText}>
+                {message?.content || message?.text || ""}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+
+      <View style={styles.inputWrap}>
+        <TextInput
+          placeholder="Type a message..."
+          placeholderTextColor="#444"
+          style={styles.input}
+          value={draft}
+          onChangeText={setDraft}
+        />
+        <TouchableOpacity activeOpacity={0.7} style={styles.sendButton}
+          onPress={sendmessage}
+        >
+          <Ionicons name="send" size={22} color="#111" />
+        </TouchableOpacity>
+      </View>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  top: {
+    backgroundColor: "#27a6fd",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 15,
+    paddingBottom: 20,
+    gap: 10,
+    paddingTop:40,
+  },
+  backButton: {
+    backgroundColor: "#feda00",
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    marginRight:10,
+  },
+  title: {
+    fontSize: 34,
+    color: "#111",
+    fontFamily: "Outfit_700Bold",
+  },
+  topic: {
+    backgroundColor: "#feda00",
+    borderWidth: 3,
+    borderColor: "#111",
+    paddingVertical: 12,
+  },
+  topicText: {
+    fontSize: 28,
+    color: "#111",
+    marginLeft: 14,
+    fontFamily: "Outfit_700Bold",
+  },
+  chatArea: {
+    flex: 1,
+    backgroundColor: "white",
+  },
+  chatContent: {
+    padding: 14,
+    gap: 10,
+  },
+  messageRow: {
+    width: "100%",
+    marginBottom: 8,
+  },
+  bubble: {
+    width: "100%",
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#dedede",
+  },
+  senderName: {
+    fontSize: 13,
+    color: "#111",
+    fontFamily: "Outfit_600SemiBold",
+    marginBottom: 2,
+  },
+  messageText: {
+    fontSize: 16,
+    color: "#111",
+    fontFamily: "Outfit_400Regular",
+  },
+  inputWrap: {
+    backgroundColor: "#fc56aa",
+    borderTopWidth: 3,
+    borderColor: "#111",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    fontFamily: "Outfit_400Regular",
+    color: "#111",
+  },
+  sendButton: {
+    backgroundColor: "#feda00",
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});

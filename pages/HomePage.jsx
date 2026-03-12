@@ -17,6 +17,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import Entypo from "@expo/vector-icons/Entypo";
 import { recommendedSpaces, trendingSpaces } from "../services/api";
+import { useRouter } from "expo-router"; 
 
 const trendingColors = ["#feda03", "#5dd76c", "#fc55aa", "#41b4fb"];
 const recommendedColors = ["#fc56aa", "#8ad8f5", "#5dd76d", "#feda03"];
@@ -24,6 +25,7 @@ const recommendedColors = ["#fc56aa", "#8ad8f5", "#5dd76d", "#feda03"];
 const fallbackCreator = "space7";
 
 export default function HomePage() {
+  const router = useRouter();
   const [trendingCards, setTrendingCards] = useState([]);
   const [recommendedCards, setRecommendedCards] = useState([]);
 
@@ -110,7 +112,7 @@ export default function HomePage() {
           >
             {trendingCards.map((card, index) => {
               const tags = Array.isArray(card?.tags) ? card.tags : [];
-              const creator = card?.creator?.username || fallbackCreator;
+              const creator = card?.creator?.username ?? fallbackCreator;
               const count =
                 card?.participant_count ??
                 card?.member_count ??
@@ -120,8 +122,14 @@ export default function HomePage() {
               return (
                 <TouchableOpacity
                   key={card?.space_id || card?.id || `${card?.title}-${index}`}
-                  activeOpacity={1}
+                  activeOpacity={0.7}
                   style={[styles.topicCard, { backgroundColor: trendingColors[index % trendingColors.length] }]}
+                  onPress={() => {
+                    const id = card?.space_id || card?.id;
+                    if (!id) return;
+                    router.push({ pathname: "/chat", params: { spaceId: id } });
+                  }}
+
                 >
                   <View style={styles.cardTitleRow}>
                     <Text style={styles.cardTitle} numberOfLines={1} ellipsizeMode="tail">
@@ -187,8 +195,13 @@ export default function HomePage() {
             return (
               <TouchableOpacity
                 key={card?.space_id || card?.id || `${card?.title}-${index}`}
-                activeOpacity={1}
+                activeOpacity={0.7}
                 style={[styles.recCard, { backgroundColor: recommendedColors[index % recommendedColors.length] }]}
+                onPress={() => {
+                  const id = card?.space_id || card?.id;
+                  if (!id) return;
+                  router.push({ pathname: "/chat", params: { spaceId: id } });
+                }}
               >
                 <Text style={styles.recTitle}>{card?.title || "Untitled"}</Text>
                 <Text style={styles.recDesc}>{card?.description || "No description available."}</Text>
