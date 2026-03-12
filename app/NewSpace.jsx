@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text, View, StyleSheet, TextInput, TouchableOpacity, Alert } from "react-native";
+import { Text, View, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from "react-native";
 import Screen from "../components/Screen";
 import { useRouter } from "expo-router";
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
@@ -76,101 +76,106 @@ export default function NewSpace() {
   const router = useRouter();
   return (
     <Screen>
-      <View style={styles.top}>
-        <Text style={styles.title}>Space7</Text>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          style={styles.closeButton}
-          onPress={() => {
-            router.push("/(tabs)");
-          }}
-        >
-          <Ionicons name="close" size={40} color="black" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.topic}>
-        <Text style={styles.topicText}>New Topic</Text>
-      </View>
-      <View style={styles.titleCard}><Text style={{fontFamily:'Outfit_700Bold',fontSize:26,paddingHorizontal:10}}>Title</Text></View>
-      <TextInput placeholder="  Enter topic title..." style={styles.titleInput} onChangeText={setTitle} value={title}></TextInput>
-      <View style={styles.descriptionCard}><Text style={{fontFamily:'Outfit_700Bold',fontSize:26,paddingHorizontal:10}}>Description</Text></View>
-      <View style={styles.descriptionInput}>
-        <TextInput
-          style={styles.descriptionText}
-          placeholder="Enter description..."
-          placeholderTextColor="#6b6673"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          maxLength={maxChars}
-          textAlignVertical="top"
-        />
-        <Text style={styles.counter}>
-          {description.length} / {maxChars}
-        </Text>
-      </View>
-      <View style={{position:'relative'}}>
-        <View style={styles.hastagTab}><Text style={{alignSelf:'center', marginTop:2, fontFamily:'Outfit_700Bold',fontSize:20}}>#Hastags</Text></View>
-        <View style={styles.hastag}>
-          <View style={styles.tagInputRow}>
-            <TextInput
-              placeholder="#Add Hastags"
-              style={styles.search}
-              onChangeText={setCurrentTag}
-              value={currentTag}
-            />
-            <TouchableOpacity activeOpacity={0.7} onPress={handleTagChange} style={styles.plusIcon}>
-              <FontAwesome5 name="plus" size={20} color="black" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.tagsContainer}>
-            {tags.map((tag) => (
-              <View key={tag} style={styles.tagChip}>
-                <Text style={styles.tagText}>#{tag}</Text>
-                <TouchableOpacity activeOpacity={0.7} onPress={() => handleRemoveTag(tag)}>
-                  <Ionicons name="close" size={16} color="black" />
-                </TouchableOpacity>
-              </View>
-            ))}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.top}>
+          <Text style={styles.title}>Space7</Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.closeButton}
+            onPress={() => {
+              router.push("/(tabs)");
+            }}
+          >
+            <Ionicons name="close" size={40} color="black" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.topic}>
+          <Text style={styles.topicText}>New Topic</Text>
+        </View>
+        <View style={styles.titleCard}><Text style={{fontFamily:'Outfit_700Bold',fontSize:26,paddingHorizontal:10}}>Title</Text></View>
+        <TextInput placeholder="  Enter topic title..." style={styles.titleInput} onChangeText={setTitle} value={title}></TextInput>
+        <View style={styles.descriptionCard}><Text style={{fontFamily:'Outfit_700Bold',fontSize:26,paddingHorizontal:10}}>Description</Text></View>
+        <View style={styles.descriptionInput}>
+          <TextInput
+            style={styles.descriptionText}
+            placeholder="Enter description..."
+            placeholderTextColor="#6b6673"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            maxLength={maxChars}
+            textAlignVertical="top"
+          />
+          <Text style={styles.counter}>
+            {description.length} / {maxChars}
+          </Text>
+        </View>
+        <View style={{position:'relative'}}>
+          <View style={styles.hastagTab}><Text style={{alignSelf:'center', marginTop:2, fontFamily:'Outfit_700Bold',fontSize:20}}>#Hastags</Text></View>
+          <View style={styles.hastag}>
+            <View style={styles.tagInputRow}>
+              <TextInput
+                placeholder="#Add Hastags"
+                style={styles.search}
+                onChangeText={setCurrentTag}
+                value={currentTag}
+              />
+              <TouchableOpacity activeOpacity={0.7} onPress={handleTagChange} style={styles.plusIcon}>
+                <FontAwesome5 name="plus" size={20} color="black" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.tagsContainer}>
+              {tags.map((tag) => (
+                <View key={tag} style={styles.tagChip}>
+                  <Text style={styles.tagText}>#{tag}</Text>
+                  <TouchableOpacity activeOpacity={0.7} onPress={() => handleRemoveTag(tag)}>
+                    <Ionicons name="close" size={16} color="black" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
-      </View>
-      <View style={styles.statusIconSection}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setVisibility("public")}
-          style={[
-            styles.statusIcon,
-            { backgroundColor: "#5dd76d" },
-            visibility === "public" && styles.statusSelected,
-          ]}
-        >
-          <Octicons name={visibility === "public" ? "dot-fill" : "circle"} size={18} color="black" />
-          <Octicons name="globe" size={24} color="black" />
-          <Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Public</Text>
+        <View style={styles.statusIconSection}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setVisibility("public")}
+            style={[
+              styles.statusIcon,
+              { backgroundColor: "#5dd76d" },
+              visibility === "public" && styles.statusSelected,
+            ]}
+          >
+            <Octicons name={visibility === "public" ? "dot-fill" : "circle"} size={18} color="black" />
+            <Octicons name="globe" size={24} color="black" />
+            <Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Public</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setVisibility("private")}
+            style={[
+              styles.statusIcon,
+              { backgroundColor: "#fc2e99" },
+              visibility === "private" && styles.statusSelected,
+            ]}
+          >
+            <Octicons name={visibility === "private" ? "dot-fill" : "circle"} size={18} color="black" />
+            <MaterialIcons name="lock-outline" size={24} color="black" />
+            <Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Private</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity activeOpacity={0.7} style={styles.createButton} onPress={handleCreate} disabled={isSubmitting}>
+          <Text style={{fontFamily:'Outfit_700Bold',fontSize:26}}>{isSubmitting ? "Creating..." : "Create"}</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setVisibility("private")}
-          style={[
-            styles.statusIcon,
-            { backgroundColor: "#fc2e99" },
-            visibility === "private" && styles.statusSelected,
-          ]}
-        >
-          <Octicons name={visibility === "private" ? "dot-fill" : "circle"} size={18} color="black" />
-          <MaterialIcons name="lock-outline" size={24} color="black" />
-          <Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Private</Text>
-        </TouchableOpacity>
-      </View>
-      <TouchableOpacity activeOpacity={0.7} style={styles.createButton} onPress={handleCreate} disabled={isSubmitting}>
-        <Text style={{fontFamily:'Outfit_700Bold',fontSize:26}}>{isSubmitting ? "Creating..." : "Create"}</Text>
-      </TouchableOpacity>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContent:{
+    paddingBottom:30,
+  },
   top:{
     backgroundColor:"#27a6fd",
     display:"flex",

@@ -5,7 +5,9 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
+  Alert,
 } from "react-native";
+import { useEffect, useState } from "react";
 import Screen from "../components/Screen";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -14,64 +16,47 @@ import Feather from "@expo/vector-icons/Feather";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import Entypo from "@expo/vector-icons/Entypo";
+import { recommendedSpaces, trendingSpaces } from "../services/api";
 
-const trendingCards = [
-  {
-    id: 1,
-    emoji: "⚡",
-    title: "AI in Future",
-    description: "How will AI change the world by 2030?",
-    by: "arjun",
-    count: 324,
-    tags: ["#AI", "#Future"],
-    color: "#feda03",
-  },
-  {
-    id: 2,
-    emoji: "🗺️",
-    title: "Startup",
-    description: "Share your journey, ideas and startups!",
-    by: "meera",
-    count: 211,
-    tags: ["#Startup"],
-    color: "#5dd76c",
-  },
-  {
-    id: 3,
-    emoji: "🗺️",
-    title: "Startup",
-    description: "Share your journey, ideas and startups!",
-    by: "meera",
-    count: 211,
-    tags: ["#Startup"],
-    color: "#fc55aa",
-  },
-];
+const trendingColors = ["#feda03", "#5dd76c", "#fc55aa", "#41b4fb"];
+const recommendedColors = ["#fc56aa", "#8ad8f5", "#5dd76d", "#feda03"];
 
-const recommendedCards = [
-  {
-    id: 1,
-    emoji: "🧬",
-    title: "Mindfulness & Life",
-    description: "Let's talk about mental wellness",
-    by: "kavi",
-    count: 189,
-    tags: ["#Heath", "#Wellbeing"],
-    color: "#fc56aa",
-  },
-  {
-    id: 2,
-    emoji: "🌐",
-    title: "Web3 Basics",
-    description: "Beginner's guide to Web3 & Crypto.",
-    by: "rahul",
-    count: 456,
-    tags: ["#Web3", "#Crypto"],
-    color: "#8ad8f5",
-  },
-];
+const fallbackCreator = "space7";
 
 export default function HomePage() {
+  const [trendingCards, setTrendingCards] = useState([]);
+  const [recommendedCards, setRecommendedCards] = useState([]);
+
+  useEffect(() => {
+    const loadHomeData = async () => {
+      try {
+        const [trendingData, recommendedData] = await Promise.all([
+          trendingSpaces(10),
+          recommendedSpaces(undefined, 10),
+        ]);
+
+        const trendingList = Array.isArray(trendingData)
+          ? trendingData
+          : trendingData?.spaces || [];
+        const recommendedList = Array.isArray(recommendedData)
+          ? recommendedData
+          : recommendedData?.recommended ||
+            recommendedData?.recomended ||
+            recommendedData?.spaces ||
+            [];
+
+        setTrendingCards(trendingList);
+        setRecommendedCards(recommendedList);
+      } catch (error) {
+        Alert.alert("Load failed", error?.message || "Unable to fetch home data");
+        setTrendingCards([]);
+        setRecommendedCards([]);
+      }
+    };
+
+    loadHomeData();
+  }, []);
+
   return (
     <Screen>
       <View style={styles.page}>
@@ -115,12 +100,7 @@ export default function HomePage() {
             <Text style={[styles.sectionPill, styles.trendingPill]}>
               Trending Topics
             </Text>
-            <TouchableOpacity
-              style={[styles.seeAllPill, styles.green]}
-              activeOpacity={1}
-            >
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
+            
           </View>
 
           <ScrollView
@@ -128,96 +108,120 @@ export default function HomePage() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.hList}
           >
-            {trendingCards.map((card) => (
-              <TouchableOpacity
-                key={card.id}
-                activeOpacity={1}
-                style={[styles.topicCard, { backgroundColor: card.color }]}
-              >
-                <View style={styles.cardTitleRow}>
-                  <Text style={styles.cardTitle}>
-                    {card.emoji} {card.title}
-                  </Text>
-                </View>
-                <Text style={styles.cardDesc}>{card.description}</Text>
+            {trendingCards.map((card, index) => {
+              const tags = Array.isArray(card?.tags) ? card.tags : [];
+              const creator = card?.creator?.username || fallbackCreator;
+              const count =
+                card?.participant_count ??
+                card?.member_count ??
+                card?.members_count ??
+                (Array.isArray(card?.members) ? card.members.length : 0);
 
-                <View style={styles.byRow}>
-                  <MaterialCommunityIcons
-                    name="face-man-profile"
-                    size={24}
-                    color="#111"
-                  />
-                  <Text style={styles.byText}>By @{card.by}</Text>
-                  <View style={styles.countWrap}>
-                    <Feather name="user" size={25} color="#111" />
-                    <Text style={styles.countText}>{card.count}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.tagRow}>
-                  {card.tags.map((tag, idx) => (
-                    <Text
-                      key={tag}
-                      style={[
-                        styles.tag,
-                        idx % 2 === 0 ? styles.tagBlue : styles.tagGreen,
-                      ]}
-                    >
-                      {tag}
+              return (
+                <TouchableOpacity
+                  key={card?.space_id || card?.id || `${card?.title}-${index}`}
+                  activeOpacity={1}
+                  style={[styles.topicCard, { backgroundColor: trendingColors[index % trendingColors.length] }]}
+                >
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardTitle} numberOfLines={1} ellipsizeMode="tail">
+                      {card?.title || "Untitled"}
                     </Text>
-                  ))}
-                </View>
-              </TouchableOpacity>
-            ))}
+                  </View>
+                  <Text style={styles.cardDesc} numberOfLines={3} ellipsizeMode="tail">
+                    {card?.description || "No description available."}
+                  </Text>
+
+                  <View style={styles.byRow}>
+                    <MaterialCommunityIcons
+                      name="face-man-profile"
+                      size={24}
+                      color="#111"
+                    />
+                    <Text style={styles.byText}>By @{creator}</Text>
+                    <View style={styles.countWrap}>
+                      <Feather name="user" size={25} color="#111" />
+                      <Text style={styles.countText}>{count}</Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.tagRow, styles.tagRowTrending]}>
+                    {tags.length === 0 ? (
+                      <Text style={[styles.tag, styles.tagBlue]}>#general</Text>
+                    ) : (
+                      tags.slice(0, 4).map((tag, idx) => (
+                        <Text
+                          key={`${card?.space_id || index}-${tag?.tag_id || idx}`}
+                          style={[
+                            styles.tag,
+                            idx % 2 === 0 ? styles.tagBlue : styles.tagGreen,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          #{String(tag?.tag_name || "").replace(/^#/, "")}
+                        </Text>
+                      ))
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionPill, styles.recPill]}>
               Recommended
             </Text>
-            <TouchableOpacity
-              style={[styles.seeAllPill, styles.blue]}
-              activeOpacity={1}
-            >
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
+            
           </View>
 
-          {recommendedCards.map((card) => (
-            <TouchableOpacity
-              key={card.id}
-              activeOpacity={1}
-              style={[styles.recCard, { backgroundColor: card.color }]}
-            >
-              <Text style={styles.recTitle}>
-                {card.emoji} {card.title}
-              </Text>
-              <Text style={styles.recDesc}>{card.description}</Text>
+          {recommendedCards.map((card, index) => {
+            const tags = Array.isArray(card?.tags) ? card.tags : [];
+            const creator = card?.creator?.username || fallbackCreator;
+            const count =
+              card?.participant_count ??
+              card?.member_count ??
+              card?.members_count ??
+              (Array.isArray(card?.members) ? card.members.length : 0);
 
-              <View style={styles.byRow}>
-                <FontAwesome5 name="user-circle" size={24} color="#111" />
-                <Text style={styles.byText}>By @{card.by}</Text>
-                <View style={styles.countWrap}>
-                  <Feather name="user" size={25} color="#111" />
-                  <Text style={styles.countText}>{card.count}</Text>
+            return (
+              <TouchableOpacity
+                key={card?.space_id || card?.id || `${card?.title}-${index}`}
+                activeOpacity={1}
+                style={[styles.recCard, { backgroundColor: recommendedColors[index % recommendedColors.length] }]}
+              >
+                <Text style={styles.recTitle}>{card?.title || "Untitled"}</Text>
+                <Text style={styles.recDesc}>{card?.description || "No description available."}</Text>
+
+                <View style={styles.byRow}>
+                  <FontAwesome5 name="user-circle" size={24} color="#111" />
+                  <Text style={styles.byText}>By @{creator}</Text>
+                  <View style={styles.countWrap}>
+                    <Feather name="user" size={25} color="#111" />
+                    <Text style={styles.countText}>{count}</Text>
+                  </View>
                 </View>
-              </View>
 
-              <View style={styles.tagRow}>
-                {card.tags.map((tag, idx) => (
-                  <Text
-                    key={tag}
-                    style={[
-                      styles.tag,
-                      idx % 2 === 0 ? styles.tagPurple : styles.tagGreen,
-                    ]}
-                  >
-                    {tag}
-                  </Text>
-                ))}
-              </View>
-            </TouchableOpacity>
-          ))}
+                <View style={styles.tagRow}>
+                  {tags.length === 0 ? (
+                    <Text style={[styles.tag, styles.tagPurple]}>#general</Text>
+                  ) : (
+                    tags.map((tag, idx) => (
+                      <Text
+                        key={`${card?.space_id || index}-${tag?.tag_id || idx}`}
+                        style={[
+                          styles.tag,
+                          idx % 2 === 0 ? styles.tagPurple : styles.tagGreen,
+                        ]}
+                      >
+                        #{String(tag?.tag_name || "").replace(/^#/, "")}
+                      </Text>
+                    ))
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
     </Screen>
@@ -360,6 +364,7 @@ const styles = StyleSheet.create({
     borderColor: "#111",
     borderWidth: 4,
     padding: 12,
+    overflow: "hidden",
   },
   cardTitleRow: {
     flexDirection: "row",
@@ -371,12 +376,13 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: "900",
     color: "#111",
+    flexShrink: 1,
   },
   cardDesc: {
     fontSize: 14,
     color: "#111",
     marginBottom: 8,
-    minHeight: 44,
+    minHeight: 56,
   },
   byRow: {
     flexDirection: "row",
@@ -406,6 +412,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 10,
     flexWrap: "wrap",
+  },
+  tagRowTrending: {
+    minHeight: 44,
+    maxHeight: 44,
+    overflow: "hidden",
   },
   tag: {
     borderRadius: 12,

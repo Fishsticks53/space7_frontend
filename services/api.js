@@ -1,77 +1,76 @@
 import * as SecureStore from "expo-secure-store";
-const BASE_URL = "http://192.168.1.14:5000/api";
+import { Platform } from "react-native";
+
+const DEFAULT_BASE_URL =
+  Platform.OS === "android"
+    ? "http://10.0.2.2:5000/api"
+    : "http://localhost:5000/api";
+
+const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_BASE_URL;
+
+async function parseResponse(response) {
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || `Request failed (${response.status})`);
+  }
+
+  return data;
+}
+
+async function request(path, options = {}) {
+  try {
+    const response = await fetch(`${BASE_URL}${path}`, options);
+    return await parseResponse(response);
+  } catch (error) {
+    if (error?.message?.toLowerCase().includes("network request failed")) {
+      throw new Error(
+        `Cannot reach backend at ${BASE_URL}. Set EXPO_PUBLIC_API_BASE_URL to your running API URL.`
+      );
+    }
+    throw error;
+  }
+}
 
 export async function signup(username, email, password) {
-  const response = await fetch(`${BASE_URL}/auth/signup`, {
+  return request("/auth/signup", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ username, email, password }),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Signup failed");
-  }
-
-  return data;
 }
 
 export async function profiledetails(){
     const token = await SecureStore.getItemAsync("jwt_token");
-    
-    const response = await fetch(`${BASE_URL}/profile/me`,{
+    return request("/profile/me",{
         method:"GET",
         headers:{
             "Content-Type":"application/json",
             "Authorization": `Bearer ${token}`
         }
-    })
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || "Failed to fetch profile");
-    }
-    return data;
+    });
 }
 
 export async function loginUser(email, password) {
-  const response = await fetch(`${BASE_URL}/auth/login`, {
+  return request("/auth/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ email, password }),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Login failed");
-  }
-
-  return data;
 }
 
 export async function verifyOTP(email, otp) {
-  const response = await fetch(`${BASE_URL}/auth/verify-otp`, {
+  return request("/auth/verify-otp", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ email, otp }),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "OTP verification failed");
-  }
-
-  return data;
 }
 
 export async function createSpace(title, description, visibility, hashtags, authToken){
@@ -80,7 +79,7 @@ export async function createSpace(title, description, visibility, hashtags, auth
     throw new Error("Missing auth token. Please sign in again.");
   }
 
-  const response = await fetch(`${BASE_URL}/spaces`,{
+  return request("/spaces",{
     method:"POST",
     headers:{
       "Content-Type":"application/json",
@@ -88,14 +87,6 @@ export async function createSpace(title, description, visibility, hashtags, auth
     },
     body:JSON.stringify({ title, description, visibility, hashtags })
   });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to create Space");
-  }
-
-  return data;
 }
 
 export async function myspaces(authToken, visibility = ""){
@@ -112,19 +103,35 @@ export async function myspaces(authToken, visibility = ""){
     URL = `${BASE_URL}/spaces/my`;
   }
 
-  const response = await fetch(URL,{
+  return request(URL.replace(BASE_URL, ""),{
     method:"GET",
     headers:{
       "Content-Type":"application/json",
       "Authorization": `Bearer ${token}`
     }
   });
+}
 
-  const data = await response.json().catch(() => ({}));
+export async function trendingSpaces(limit = 10) {
+  return request(`/spaces/trending?limit=${limit}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
 
-  if (!response.ok) {
-    throw new Error(data.message || "Failed to load Spaces");
+export async function recommendedSpaces(authToken, limit = 10) {
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
   }
 
-  return data;
+  return request(`/spaces/recommended?limit=${limit}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+  });
 }

@@ -1,109 +1,70 @@
-import { Button, Text, View, StyleSheet, TouchableOpacity, ScrollView, Pressable } from "react-native";
+import { Text, View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import Screen from "../components/Screen";
 import Feather from "@expo/vector-icons/Feather";
 import Entypo from "@expo/vector-icons/Entypo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import {useAuth} from "../context/authContext";
+import { useAuth } from "../context/authContext";
 import { useState, useEffect } from "react";
 
 export default function ProfilePage() {
   const router = useRouter();
-
-  const colors=['#fc55aa','#27a6fd','#feda00','#5dd76d'];
-  const {signOut, profileDetails} = useAuth();
+  const colors = ["#fc55aa", "#27a6fd", "#feda00", "#5dd76d"];
+  const { signOut, profileDetails, mySpaces } = useAuth();
   const [user, setUser] = useState({});
+  const [spaces, setSpaces] = useState([]);
+
   const handleLogout = async () => {
     await signOut();
     router.replace("/Login");
   };
 
-  useEffect( ()=>{
-      const getProfile = async ()=>{
-      const data = await profileDetails();
-      setUser(data);
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const [profileData, spacesData] = await Promise.all([
+          profileDetails(),
+          mySpaces(""),
+        ]);
+        setUser(profileData || {});
+        setSpaces(Array.isArray(spacesData) ? spacesData : spacesData?.spaces || []);
+      } catch (error) {
+        setUser({});
+        setSpaces([]);
+      }
     };
-    getProfile();
-  },[])
+
+    loadProfile();
+  }, []);
+
+  const totalParticipants = spaces.reduce((sum, space) => {
+    const count =
+      space?.participant_count ??
+      space?.member_count ??
+      space?.members_count ??
+      (Array.isArray(space?.members) ? space.members.length : 0);
+    return sum + (Number(count) || 0);
+  }, 0);
 
   const details = {
     username: user?.username || "User",
-    image: "😇",
-    description: "Startup Enthusiast 🚀 Book Lover 📖",
-    spaces: 7,
-    activeUsersSpace: 132,
-    participated: 31,
-    lastActive: 2,
-    activeUserSpace2: 198,
+    description: "Startup Enthusiast Book Lover",
+    spaces: spaces.length,
+    activeUsersSpace: totalParticipants,
+    activeUserSpace2: totalParticipants,
   };
-
-const spaces = [
-  {
-    id: 1,
-    title: "Startup Storytelling🚀",
-    count: 198,
-    description: "Share your journey startups!",
-    days: 2,
-    status: "public",
-    tags: ["startup", "HealthTech"],
-  },
-  {
-    id: 2,
-    title: "Productivity Hacks",
-    count: 269,
-    description: "Tips for boosting your productivity",
-    days: 2,
-    status: "private",
-    tags: ["startup", "HealthTech"],
-  },
-  {
-    id: 3,
-    title: "AI Builders Hub",
-    count: 154,
-    description: "Discuss building AI tools and startups",
-    days: 5,
-    status: "public",
-    tags: ["AI", "MachineLearning"],
-  },
-  {
-    id: 4,
-    title: "Indie Dev Community",
-    count: 87,
-    description: "For solo developers building products",
-    days: 1,
-    status: "public",
-    tags: ["IndieDev", "Startups"],
-  },
-  {
-    id: 5,
-    title: "Tech Career Growth",
-    count: 312,
-    description: "Advice on tech jobs, interviews and growth",
-    days: 3,
-    status: "private",
-    tags: ["Career", "Tech"],
-  },
-];
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
         <View style={styles.topbar}>
           <View style={styles.icons}>
-            <TouchableOpacity
-              onPress={() => {
-                router.push("/(tabs)");
-              }}
-            >
+            <TouchableOpacity onPress={() => router.push("/(tabs)")}>
               <Feather name="arrow-left" size={30} color="black" />
             </TouchableOpacity>
-            <Text style={styles.topbar.user}>@ {details.username}</Text>
-            <TouchableOpacity
-              onPress={() => {
-                router.push("/edit-profile");
-              }}
-            >
+            <Text style={styles.userName}>@ {details.username}</Text>
+            <TouchableOpacity onPress={() => router.push("/edit-profile")}>
               <Entypo name="dots-three-horizontal" size={30} color="black" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -119,231 +80,119 @@ const spaces = [
             <Ionicons name="sparkles-sharp" size={32} color="black" />
           </View>
         </View>
+
         <View style={styles.bottom}>
-          <View
-            style={{
-              position: "realtive",
-              display: "flex",
-              justifyContent: "center",
-              flexDirection: "row",
-            }}
-          >
+          <View style={styles.profileWrap}>
             <View style={styles.profileImage}></View>
           </View>
-          <View
-            style={{
-              display: "flex",
-              alignItems: "center",
-              flexDirection: "col",
-              marginTop: 50,
-            }}
-          >
-            <Text style={{ fontSize: 20, fontWeight: "bold", marginTop: 5 }}>
-              @{details.username}
-            </Text>
+
+          <View style={styles.userMetaWrap}>
+            <Text style={styles.userTag}>@{details.username}</Text>
             <View style={styles.description}>
               <Text>{details.description}</Text>
             </View>
           </View>
-          <View
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              justifyContent: "center",
-              gap: 10,
-              marginTop: 10,
-            }}
-          >
-            <View
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                justifyContent: "center",
-              }}
-            >
-              <View style={styles.spaceIcon}>
-                <View>
-                  <Text style={{ fontSize: 25, fontWeight: "bold" }}>
-                    🚀 {details.spaces}
-                  </Text>
+
+          <View style={styles.statsWrap}>
+            <View style={styles.spaceIcon}>
+              <Text style={styles.bigText}> {details.spaces}</Text>
+              <Text style={styles.mediumText}>Spaces</Text>
+              <Text style={styles.separator}>{"-".repeat(22)}</Text>
+              <View style={styles.statRow}>
+                <View style={styles.statInner}>
+                  <MaterialCommunityIcons name="face-man-profile" size={24} color="black" />
+                  <Text>{details.username}</Text>
                 </View>
-                <View>
-                  <Text style={{ fontSize: 18, fontWeight: "bold" }}>
-                    Spaces
-                  </Text>
-                </View>
-                <View>
-                  <Text
-                    style={{
-                      fontSize: 25,
-                      flex: 1,
-                      width: "auto",
-                      paddingHorizontal: 0,
-                    }}
-                  >
-                    {"-".repeat(22)}
-                  </Text>
-                </View>
-                <View
-                  style={{ display: "flex", flexDirection: "row", gap: 20 }}
-                >
-                  <View
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      gap: 3,
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name="face-man-profile"
-                      size={24}
-                      color="black"
-                    />
-                    <Text>{details.username}</Text>
-                  </View>
-                  <View
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      gap: 3,
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Feather name="user" size={24} color="black" />
-                    <Text>{details.activeUsersSpace}</Text>
-                  </View>
+                <View style={styles.statInner}>
+                  <Feather name="user" size={24} color="black" />
+                  <Text>{details.activeUsersSpace}</Text>
                 </View>
               </View>
             </View>
-            <View
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                justifyContent: "center",
-              }}
-            >
-              <View style={styles.spaceIcon2}>
-                <View>
-                  <Text style={{ fontSize: 25, fontWeight: "bold" }}>
-                    💬 {details.spaces}
-                  </Text>
+
+            <View style={styles.spaceIcon2}>
+              <Text style={styles.bigText}> {details.spaces}</Text>
+              <Text style={styles.mediumText}>Participated</Text>
+              <Text style={styles.separator}>{"-".repeat(20)}</Text>
+              <View style={styles.statRow}>
+                <View style={styles.statInner}>
+                  <MaterialCommunityIcons name="face-man-profile" size={24} color="black" />
+                  <Text>{details.username}</Text>
                 </View>
-                <View>
-                  <Text style={{ fontSize: 18, fontWeight: "bold" }}>
-                    Participated
-                  </Text>
-                </View>
-                <View>
-                  <Text style={{ fontSize: 25, flex: 1 }}>
-                    {"-".repeat(20)}
-                  </Text>
-                </View>
-                <View
-                  style={{ display: "flex", flexDirection: "row", gap: 20 }}
-                >
-                  <View
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      gap: 3,
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name="face-man-profile"
-                      size={24}
-                      color="black"
-                    />
-                    <Text>{details.username}</Text>
-                  </View>
-                  <View
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      gap: 3,
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Feather name="user" size={24} color="black" />
-                    <Text>{details.activeUserSpace2}</Text>
-                  </View>
+                <View style={styles.statInner}>
+                  <Feather name="user" size={24} color="black" />
+                  <Text>{details.activeUserSpace2}</Text>
                 </View>
               </View>
             </View>
           </View>
-          <Text
-            style={{
-              backgroundColor: "#5dd76d",
-              alignSelf: "flex-start",
-              fontSize: 18,
-              borderColor: "black",
-              borderWidth: 3,
-              borderRadius: 8,
-              marginTop: 20,
-              marginLeft: 20,
-              padding: 5,
-              fontWeight: "bold",
-            }}
-          >
-            Created Spaces
-          </Text>
+
+          <Text style={styles.createdTitle}>Created Spaces</Text>
+
           <View style={styles.createdSpacesWrap}>
-            {spaces.map((space) => (
-              <TouchableOpacity key={space.id}>
-                  <View style={[styles.spaceCard, { backgroundColor: colors[space.id % colors.length] }]}>
-                  <View style={styles.spaceCardTopRow}>
-                    <Text style={styles.spaceTitle}>{space.title}</Text>
-                    <View style={styles.spaceCountRow}>
-                      <Feather name="user" size={14} color="black" />
-                      <Text style={styles.spaceCountText}>{space.count}</Text>
-                    </View>
-                  </View>
+            {spaces.map((space, index) => {
+              const participantCount =
+                space?.participant_count ??
+                space?.member_count ??
+                space?.members_count ??
+                (Array.isArray(space?.members) ? space.members.length : 0);
 
-                  <Text style={styles.spaceDescriptionText}>{space.description}</Text>
+              const daysAgo = space?.created_at
+                ? Math.max(
+                    0,
+                    Math.floor((Date.now() - new Date(space.created_at).getTime()) / (1000 * 60 * 60 * 24))
+                  )
+                : 0;
 
-                  <View style={styles.spaceMetaRow}>
-                    <View style={styles.spaceMetaLeft}>
-                      <View style={styles.spaceOwnerRow}>
-                        <MaterialCommunityIcons
-                          name="face-man-profile"
-                          size={18}
-                          color="black"
-                        />
-                        <Text style={styles.spaceMetaText}>@{details.username}</Text>
+              const tags = Array.isArray(space?.tags) ? space.tags : [];
+
+              return (
+                <TouchableOpacity key={space?.space_id || space?.id || `${space?.title}-${index}`}>
+                  <View style={[styles.spaceCard, { backgroundColor: colors[index % colors.length] }]}>
+                    <View style={styles.spaceCardTopRow}>
+                      <Text style={styles.spaceTitle}>{space?.title || "Untitled Space"}</Text>
+                      <View style={styles.spaceCountRow}>
+                        <Feather name="user" size={14} color="black" />
+                        <Text style={styles.spaceCountText}>{participantCount}</Text>
                       </View>
-                      <Text style={styles.spaceMetaText}>{space.days} days ago</Text>
                     </View>
 
-                    <Text style={styles.spaceStatusBadge}>#{space.status}</Text>
+                    <Text style={styles.spaceDescriptionText}>{space?.description || "No description available."}</Text>
 
-                    <View style={styles.spaceCountRow}>
-                      <Feather name="user" size={14} color="black" />
-                      <Text style={styles.spaceCountText}>{space.count}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.spaceTagsRow}>
-                    {space.tags.map((tag, tagIndex) => {
-                      const cardColorIndex = space.id % colors.length;
-                      const availableColors = colors.filter((_, index) => index !== cardColorIndex);
-                      const tagColor = availableColors[tagIndex % availableColors.length];
-                      return (
-                        <View key={`${space.id}-${tag}`} style={[styles.spaceTag, {backgroundColor: tagColor}]}>
-                          <Text>#{tag}</Text>
+                    <View style={styles.spaceMetaRow}>
+                      <View style={styles.spaceMetaLeft}>
+                        <View style={styles.spaceOwnerRow}>
+                          <MaterialCommunityIcons name="face-man-profile" size={18} color="black" />
+                          <Text style={styles.spaceMetaText}>@{details.username}</Text>
                         </View>
-                      );
-                    })}
+                        <Text style={styles.spaceMetaText}>{daysAgo} days ago</Text>
+                      </View>
+
+                      <Text style={styles.spaceStatusBadge}>#{space?.visibility || "public"}</Text>
+
+                      <View style={styles.spaceCountRow}>
+                        <Feather name="user" size={14} color="black" />
+                        <Text style={styles.spaceCountText}>{participantCount}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.spaceTagsRow}>
+                      {tags.map((tag, tagIndex) => {
+                        const cardColorIndex = index % colors.length;
+                        const availableColors = colors.filter((_, i) => i !== cardColorIndex);
+                        const tagColor = availableColors[tagIndex % availableColors.length];
+                        return (
+                          <View key={`${space?.space_id || index}-${tag?.tag_id || tagIndex}`} style={[styles.spaceTag, { backgroundColor: tagColor }]}>
+                            <Text>#{String(tag?.tag_name || "").replace(/^#/, "")}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              );
+            })}
           </View>
-          
         </View>
       </ScrollView>
     </Screen>
@@ -355,31 +204,24 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   topbar: {
-    display: "flex",
-    justifyContent: "space-between",
-    flexDirection: "column",
     paddingTop: 40,
     paddingHorizontal: 18,
     backgroundColor: "#27a6fd",
-    justifyContent: "center",
     paddingBottom: 50,
-    user: {
-      marginRight: "auto",
-      marginLeft: 8,
-      fontSize: 18,
-      marginTop: 2,
-      fontWeight: "bold",
-    },
   },
   icons: {
-    display: "flex",
     flexDirection: "row",
-    justifyContent: "space-between",
-    justifyContent:"center",
-    alignItems:"center"
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  userName: {
+    marginRight: "auto",
+    marginLeft: 8,
+    fontSize: 18,
+    marginTop: 2,
+    fontWeight: "bold",
   },
   sparkle: {
-    display: "flex",
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
@@ -394,7 +236,11 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     backgroundColor: "white",
     paddingTop: 6,
-    height:'100%'
+    height: "100%",
+  },
+  profileWrap: {
+    justifyContent: "center",
+    flexDirection: "row",
   },
   profileImage: {
     width: 120,
@@ -406,6 +252,15 @@ const styles = StyleSheet.create({
     borderColor: "black",
     backgroundColor: "white",
   },
+  userMetaWrap: {
+    alignItems: "center",
+    marginTop: 50,
+  },
+  userTag: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: 5,
+  },
   description: {
     fontSize: 35,
     backgroundColor: "#5dd76d",
@@ -415,10 +270,15 @@ const styles = StyleSheet.create({
     marginTop: 10,
     borderRadius: 15,
     width: 370,
-    display: "flex",
     justifyContent: "center",
     alignItems: "center",
     fontWeight: "bold",
+  },
+  statsWrap: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 10,
   },
   spaceIcon: {
     backgroundColor: "#27a6fd",
@@ -436,6 +296,39 @@ const styles = StyleSheet.create({
     borderColor: "black",
     width: 180,
   },
+  bigText: {
+    fontSize: 25,
+    fontWeight: "bold",
+  },
+  mediumText: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  separator: {
+    fontSize: 25,
+  },
+  statRow: {
+    flexDirection: "row",
+    gap: 20,
+  },
+  statInner: {
+    flexDirection: "row",
+    gap: 3,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  createdTitle: {
+    backgroundColor: "#5dd76d",
+    alignSelf: "flex-start",
+    fontSize: 18,
+    borderColor: "black",
+    borderWidth: 3,
+    borderRadius: 8,
+    marginTop: 20,
+    marginLeft: 20,
+    padding: 5,
+    fontWeight: "bold",
+  },
   createdSpacesWrap: {
     marginTop: 10,
     paddingHorizontal: 12,
@@ -448,9 +341,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    marginLeft:8,
-    marginRight:8,
-    marginBottom:15,
+    marginLeft: 8,
+    marginRight: 8,
+    marginBottom: 15,
   },
   spaceCardTopRow: {
     flexDirection: "row",
@@ -511,6 +404,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     flexDirection: "row",
     gap: 6,
+    flexWrap: "wrap",
   },
   spaceTag: {
     borderWidth: 2,
@@ -526,7 +420,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "black",
     borderRadius: 12,
-    padding:6,
+    padding: 6,
     alignSelf: "center",
     marginLeft: 20,
   },

@@ -118,7 +118,7 @@ export default function MyDiscussion() {
                     tags.map((tag, idx) => (
                       <View>
                         <Text
-                          key={`${tag?.tag_id || idx}`}
+                          key={`${space?.space_id || "space"}-${tag?.tag_id || idx}`}
                           style={[styles.tag, idx % 2 === 0 ? styles.tagBlue : styles.tagGreen]}
                         >
                           #{String(tag?.tag_name || "").replace(/^#/, "")}
