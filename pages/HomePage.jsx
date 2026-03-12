@@ -112,6 +112,7 @@ export default function HomePage() {
           >
             {trendingCards.map((card, index) => {
               const tags = Array.isArray(card?.tags) ? card.tags : [];
+              const isPrivate = String(card?.visibility || "public").toLowerCase() === "private";
               const creator = card?.creator?.username ?? fallbackCreator;
               const count =
                 card?.participant_count ??
@@ -154,6 +155,14 @@ export default function HomePage() {
                   </View>
 
                   <View style={[styles.tagRow, styles.tagRowTrending]}>
+                    <View style={[styles.tag, styles.tagVisibility, styles.visibilityTag]}>
+                      <Ionicons
+                        name={isPrivate ? "lock-closed-outline" : "globe-outline"}
+                        size={14}
+                        color="black"
+                      />
+                      <Text style={styles.visibilityText}>{isPrivate ? "private" : "public"}</Text>
+                    </View>
                     {tags.length === 0 ? (
                       <Text style={[styles.tag, styles.tagBlue]}>#general</Text>
                     ) : (
@@ -170,6 +179,7 @@ export default function HomePage() {
                         </Text>
                       ))
                     )}
+                    
                   </View>
                 </TouchableOpacity>
               );
@@ -185,6 +195,7 @@ export default function HomePage() {
 
           {recommendedCards.map((card, index) => {
             const tags = Array.isArray(card?.tags) ? card.tags : [];
+            const isPrivate = String(card?.visibility || "public").toLowerCase() === "private";
             const creator = card?.creator?.username || fallbackCreator;
             const count =
               card?.participant_count ??
@@ -216,6 +227,14 @@ export default function HomePage() {
                 </View>
 
                 <View style={styles.tagRow}>
+                  <View style={[styles.tag, styles.tagVisibility, styles.visibilityTag]}>
+                    <Ionicons
+                      name={isPrivate ? "lock-closed-outline" : "globe-outline"}
+                      size={14}
+                      color="#111"
+                    />
+                    <Text style={styles.visibilityText}>{isPrivate ? "private" : "public"}</Text>
+                  </View>
                   {tags.length === 0 ? (
                     <Text style={[styles.tag, styles.tagPurple]}>#general</Text>
                   ) : (
@@ -231,6 +250,7 @@ export default function HomePage() {
                       </Text>
                     ))
                   )}
+                  
                 </View>
               </TouchableOpacity>
             );
@@ -450,6 +470,19 @@ const styles = StyleSheet.create({
   },
   tagPurple: {
     backgroundColor: "#6f65ff",
+  },
+  tagVisibility: {
+    backgroundColor: "#feda03",
+  },
+  visibilityTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  visibilityText: {
+    color: "#111",
+    fontSize: 14,
+    fontWeight: "700",
   },
   recCard: {
     marginTop: 12,

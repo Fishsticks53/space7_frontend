@@ -71,14 +71,6 @@ export default function ProfilePage() {
               <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.sparkle}>
-            <Ionicons name="sparkles-sharp" size={32} color="black" />
-            <Ionicons name="sparkles-sharp" size={32} color="black" />
-            <Ionicons name="sparkles-sharp" size={32} color="black" />
-            <Ionicons name="sparkles-sharp" size={32} color="black" />
-            <Ionicons name="sparkles-sharp" size={32} color="black" />
-            <Ionicons name="sparkles-sharp" size={32} color="black" />
-          </View>
         </View>
 
         <View style={styles.bottom}>
@@ -145,6 +137,7 @@ export default function ProfilePage() {
                 : 0;
 
               const tags = Array.isArray(space?.tags) ? space.tags : [];
+              const isPrivate = String(space?.visibility || "public").toLowerCase() === "private";
 
               return (
                 <TouchableOpacity
@@ -176,8 +169,6 @@ export default function ProfilePage() {
                         <Text style={styles.spaceMetaText}>{daysAgo} days ago</Text>
                       </View>
 
-                      <Text style={styles.spaceStatusBadge}>#{space?.visibility || "public"}</Text>
-
                       <View style={styles.spaceCountRow}>
                         <Feather name="user" size={14} color="black" />
                         <Text style={styles.spaceCountText}>{participantCount}</Text>
@@ -185,6 +176,14 @@ export default function ProfilePage() {
                     </View>
 
                     <View style={styles.spaceTagsRow}>
+                      <View style={styles.spaceVisibilityBadge}>
+                        <Ionicons
+                          name={isPrivate ? "lock-closed-outline" : "globe-outline"}
+                          size={14}
+                          color="black"
+                        />
+                        <Text style={styles.spaceVisibilityText}>{isPrivate ? "private" : "public"}</Text>
+                      </View>
                       {tags.map((tag, tagIndex) => {
                         const cardColorIndex = index % colors.length;
                         const availableColors = colors.filter((_, i) => i !== cardColorIndex);
@@ -229,15 +228,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: "bold",
   },
-  sparkle: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 35,
-    paddingBottom: 10,
-    gap: 12,
-  },
+  
   bottom: {
     width: "100%",
     marginTop: -26,
@@ -398,16 +389,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "600",
   },
-  spaceStatusBadge: {
-    backgroundColor: "#feda00",
-    borderWidth: 2,
-    borderColor: "black",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 1,
-    fontWeight: "bold",
-    fontSize: 15,
-  },
   spaceTagsRow: {
     marginTop: 8,
     flexDirection: "row",
@@ -422,6 +403,22 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     fontWeight: "bold",
     fontSize: 15,
+  },
+  spaceVisibilityBadge: {
+    backgroundColor: "#feda00",
+    borderWidth: 2,
+    borderColor: "black",
+    borderRadius: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  spaceVisibilityText: {
+    fontWeight: "bold",
+    fontSize: 15,
+    color: "black",
   },
   logoutButton: {
     backgroundColor: "#fc55aa",

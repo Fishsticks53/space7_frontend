@@ -87,6 +87,7 @@ export default function MyDiscussion() {
                 : "map-marker-radius-outline";
 
             const tags = Array.isArray(space?.tags) ? space.tags : [];
+            const isPrivate = String(space?.visibility || "public").toLowerCase() === "private";
             const count =
               space?.participant_count ??
               space?.member_count ??
@@ -121,6 +122,14 @@ export default function MyDiscussion() {
                 </View>
 
                 <View style={styles.tagRow}>
+                  <View style={[styles.tag, styles.tagVisibility, styles.visibilityTag]}>
+                    <Ionicons
+                      name={isPrivate ? "lock-closed-outline" : "globe-outline"}
+                      size={14}
+                      color="#111"
+                    />
+                    <Text style={styles.visibilityText}>{isPrivate ? "private" : "public"}</Text>
+                  </View>
                   {tags.length === 0 ? (
                     <Text style={[styles.tag, styles.tagBlue]}>#general</Text>
                   ) : (
@@ -134,7 +143,7 @@ export default function MyDiscussion() {
                       </View>
                     ))
                   )}
-                  <Text style={[styles.tag, styles.tagVisibility]}>{space?.visibility || "public"}</Text>
+                  
                 </View>
               </TouchableOpacity>
             );
@@ -264,5 +273,15 @@ const styles = StyleSheet.create({
   },
   tagVisibility: {
     backgroundColor: "#fc56aa",
+  },
+  visibilityTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  visibilityText: {
+    fontSize: 14,
+    color: "#111",
+    fontFamily: "Outfit_600SemiBold",
   },
 });
