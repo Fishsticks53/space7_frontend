@@ -1,10 +1,6 @@
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
 
-const DEFAULT_BASE_URL =
-  Platform.OS === "android"
-    ? "http://10.0.2.2:5000/api"
-    : "http://localhost:5000/api";
+const DEFAULT_BASE_URL = "https://space7backend.onrender.com/api";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_BASE_URL;
 

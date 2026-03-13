@@ -115,7 +115,7 @@ export default function ChatPage() {
           style={styles.chatArea}
           contentContainerStyle={styles.chatContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
         >
           {messages.map((message, index) => (
             <View key={message?.message_id || message?.id || String(index)} style={styles.messageRow}>

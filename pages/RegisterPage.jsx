@@ -104,7 +104,7 @@ export default function RegisterPage() {
         <ScrollView
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
         >
           <View style={styles.headerSection}>
             <Text style={styles.logo}>space7</Text>
@@ -390,16 +390,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111",
     textAlign: "center",
+    maxWidth: "92%",
   },
   otpRow: {
     flexDirection: "row",
-    gap: 8,
+    width: "100%",
+    justifyContent: "space-between",
     marginTop: 20,
     marginBottom: 20,
   },
   otpInput: {
-    width: 46,
+    flex: 1,
+    maxWidth: 48,
     height: 56,
+    marginHorizontal: 3,
     borderWidth: 3,
     borderColor: "#111",
     borderRadius: 12,

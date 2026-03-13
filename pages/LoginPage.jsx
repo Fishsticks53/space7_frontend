@@ -41,7 +41,7 @@ export default function LoginPage() {
         <ScrollView
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
         >
           <View style={styles.headerSection}>
             <Text style={styles.logo}>space7</Text>

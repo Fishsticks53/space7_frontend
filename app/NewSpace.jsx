@@ -73,7 +73,11 @@ export default function NewSpace() {
   const router = useRouter();
   return (
     <Screen>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="always"
+      >
         <View style={styles.top}>
           <Text style={styles.title}>Space7</Text>
           <TouchableOpacity
