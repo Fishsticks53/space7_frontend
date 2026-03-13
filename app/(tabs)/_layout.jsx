@@ -2,9 +2,18 @@ import { Tabs, useRouter } from "expo-router";
 import { Ionicons, Feather, Entypo } from "@expo/vector-icons";
 import Octicons from "@expo/vector-icons/Octicons";
 import { View, StyleSheet } from "react-native";
+import { useEffect } from "react";
+import { useAuth } from "../../context/authContext";
 
 export default function TabsLayout() {
   const router = useRouter();
+  const { loading, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace("/Login");
+    }
+  }, [isAuthenticated, loading, router]);
 
   return (
     <Tabs

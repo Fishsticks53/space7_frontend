@@ -20,22 +20,29 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadProfile = async () => {
       try {
         const [profileData, spacesData] = await Promise.all([
           profileDetails(),
           mySpaces(""),
         ]);
+        if (!isMounted) return;
         setUser(profileData || {});
         setSpaces(Array.isArray(spacesData) ? spacesData : spacesData?.spaces || []);
       } catch (error) {
+        if (!isMounted) return;
         setUser({});
         setSpaces([]);
       }
     };
 
     loadProfile();
-  }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [mySpaces, profileDetails]);
 
   const totalParticipants = spaces.reduce((sum, space) => {
     const count =

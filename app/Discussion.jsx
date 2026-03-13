@@ -34,7 +34,15 @@ export default function MyDiscussion() {
         setList(spaces);
         setFound(spaces.length > 0);
       } catch (error) {
-        Alert.alert("Load failed", error?.message || "Something went wrong");
+        const message = String(error?.message || "").toLowerCase();
+        const isAuthError =
+          error?.status === 401 ||
+          error?.status === 403 ||
+          message.includes("missing auth token") ||
+          message.includes("unauthorized");
+        if (!isAuthError) {
+          Alert.alert("Load failed", error?.message || "Something went wrong");
+        }
         setList([]);
         setFound(false);
       }

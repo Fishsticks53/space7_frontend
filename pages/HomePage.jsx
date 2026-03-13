@@ -26,27 +26,42 @@ export default function HomePage() {
 
   useEffect(() => {
     const loadHomeData = async () => {
-      try {
-        const [trendingData, recommendedData] = await Promise.all([
-          trendingSpaces(10),
-          recommendedSpaces(undefined, 10),
-        ]);
+      const [trendingResult, recommendedResult] = await Promise.allSettled([
+        trendingSpaces(10),
+        recommendedSpaces(undefined, 10),
+      ]);
 
+      if (trendingResult.status === "fulfilled") {
+        const trendingData = trendingResult.value;
         const trendingList = Array.isArray(trendingData)
           ? trendingData
           : trendingData?.spaces || [];
+        setTrendingCards(trendingList);
+      } else {
+        Alert.alert("Load failed", trendingResult.reason?.message || "Unable to fetch trending topics");
+        setTrendingCards([]);
+      }
+
+      if (recommendedResult.status === "fulfilled") {
+        const recommendedData = recommendedResult.value;
         const recommendedList = Array.isArray(recommendedData)
           ? recommendedData
           : recommendedData?.recommended ||
             recommendedData?.recomended ||
             recommendedData?.spaces ||
             [];
-
-        setTrendingCards(trendingList);
         setRecommendedCards(recommendedList);
-      } catch (error) {
-        Alert.alert("Load failed", error?.message || "Unable to fetch home data");
-        setTrendingCards([]);
+      } else {
+        const error = recommendedResult.reason;
+        const message = String(error?.message || "").toLowerCase();
+        const isAuthError =
+          error?.status === 401 ||
+          error?.status === 403 ||
+          message.includes("missing auth token") ||
+          message.includes("unauthorized");
+        if (!isAuthError) {
+          Alert.alert("Load failed", error?.message || "Unable to fetch recommendations");
+        }
         setRecommendedCards([]);
       }
     };

@@ -40,15 +40,19 @@ export async function signup(username, email, password) {
   });
 }
 
-export async function profiledetails(){
-    const token = await SecureStore.getItemAsync("jwt_token");
-    return request("/profile/me",{
-        method:"GET",
-        headers:{
-            "Content-Type":"application/json",
-            "Authorization": `Bearer ${token}`
-        }
-    });
+export async function profiledetails(authToken){
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request("/profile/me",{
+    method:"GET",
+    headers:{
+      "Content-Type":"application/json",
+      "Authorization": `Bearer ${token}`
+    }
+  });
 }
 
 export async function loginUser(email, password) {

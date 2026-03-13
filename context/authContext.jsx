@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import { loginUser, signup, verifyOTP, profiledetails, createSpace,myspaces } from "../services/api";
 
@@ -9,11 +9,14 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadStoredAuth();
+  const clearStoredAuth = useCallback(async () => {
+    await SecureStore.deleteItemAsync("jwt_token");
+    await SecureStore.deleteItemAsync("user_data");
+    setToken(null);
+    setUser(null);
   }, []);
 
-  const loadStoredAuth = async () => {
+  const loadStoredAuth = useCallback(async () => {
     try {
       const savedToken = await SecureStore.getItemAsync("jwt_token");
       const savedUser = await SecureStore.getItemAsync("user_data");
@@ -30,24 +33,51 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const signUp = async (username, email, password) => {
+  useEffect(() => {
+    loadStoredAuth();
+  }, [loadStoredAuth]);
+
+  const signUp = useCallback(async (username, email, password) => {
     const data = await signup(username, email, password);
     return data;
-  };
+  }, []);
 
-  const profileDetails = async ()=>{
-    const data = await profiledetails();
-    return data;
-  }
+  const normalizeAuthError = useCallback(async (error) => {
+    const message = String(error?.message || "").toLowerCase();
+    const isAuthError =
+      error?.status === 401 ||
+      error?.status === 403 ||
+      message.includes("missing auth token") ||
+      message.includes("unauthorized") ||
+      message.includes("token");
 
-  const createSpaces = async (title, description, visibility, hashtags) => {
-    const data = await createSpace(title, description, visibility, hashtags, token);
-    return data;
-  };
+    if (isAuthError) {
+      await clearStoredAuth();
+    }
+    throw error;
+  }, [clearStoredAuth]);
 
-  const verifyEmail = async (email, otp) => {
+  const profileDetails = useCallback(async ()=>{
+    try {
+      const data = await profiledetails(token);
+      return data;
+    } catch (error) {
+      return normalizeAuthError(error);
+    }
+  }, [normalizeAuthError, token]);
+
+  const createSpaces = useCallback(async (title, description, visibility, hashtags) => {
+    try {
+      const data = await createSpace(title, description, visibility, hashtags, token);
+      return data;
+    } catch (error) {
+      return normalizeAuthError(error);
+    }
+  }, [normalizeAuthError, token]);
+
+  const verifyEmail = useCallback(async (email, otp) => {
     const data = await verifyOTP(email, otp);
 
     await SecureStore.setItemAsync("jwt_token", data.token);
@@ -57,9 +87,9 @@ export function AuthProvider({ children }) {
     setUser(data.user);
 
     return data;
-  };
+  }, []);
 
-  const signIn = async (email, password) => {
+  const signIn = useCallback(async (email, password) => {
     const data = await loginUser(email, password);
 
     await SecureStore.setItemAsync("jwt_token", data.token);
@@ -67,37 +97,49 @@ export function AuthProvider({ children }) {
 
     setToken(data.token);
     setUser(data.user);
-  };
-
-  const signOut = async () => {
-    await SecureStore.deleteItemAsync("jwt_token");
-    await SecureStore.deleteItemAsync("user_data");
-
-    setToken(null);
-    setUser(null);
-  };
-
-  const mySpaces = async (visibility = "") => {
-    const data = await myspaces(token, visibility);
     return data;
-  };
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await clearStoredAuth();
+  }, [clearStoredAuth]);
+
+  const mySpaces = useCallback(async (visibility = "") => {
+    try {
+      const data = await myspaces(token, visibility);
+      return data;
+    } catch (error) {
+      return normalizeAuthError(error);
+    }
+  }, [normalizeAuthError, token]);
+
+  const value = useMemo(() => ({
+    token,
+    user,
+    loading,
+    signUp,
+    verifyEmail,
+    signIn,
+    signOut,
+    profileDetails,
+    createSpaces,
+    mySpaces,
+    isAuthenticated: !!token,
+  }), [
+    createSpaces,
+    loading,
+    mySpaces,
+    profileDetails,
+    signIn,
+    signOut,
+    signUp,
+    token,
+    user,
+    verifyEmail,
+  ]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        token,
-        user,
-        loading,
-        signUp,
-        verifyEmail,
-        signIn,
-        signOut,
-        profileDetails,
-        createSpaces,
-        mySpaces,
-        isAuthenticated: !!token,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
