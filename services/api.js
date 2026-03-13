@@ -1,7 +1,5 @@
 import * as SecureStore from "expo-secure-store";
 
-const DEFAULT_BASE_URL = "https://space7backend.onrender.com/api";
-
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_BASE_URL;
 
 async function parseResponse(response) {
