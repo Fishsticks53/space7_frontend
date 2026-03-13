@@ -12,7 +12,9 @@ async function parseResponse(response) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.message || `Request failed (${response.status})`);
+    const error = new Error(data.message || `Request failed (${response.status})`);
+    error.status = response.status;
+    throw error;
   }
 
   return data;
@@ -194,6 +196,28 @@ export async function sendMessage(spaceId, content, authToken) {
       "Authorization": `Bearer ${token}`,
     },
     body: JSON.stringify({ content: content.trim() }),
+  });
+}
+
+export async function joinSpace(spaceId, inviteCode, authToken) {
+  if (!spaceId) {
+    throw new Error("Missing space id.");
+  }
+
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  const payload = inviteCode ? { invite_code: inviteCode } : {};
+
+  return request(`/spaces/${spaceId}/join`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
   });
 }
 

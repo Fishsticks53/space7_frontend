@@ -3,8 +3,6 @@ import { Text, View, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView 
 import Screen from "../components/Screen";
 import { useRouter } from "expo-router";
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
-import Octicons from '@expo/vector-icons/Octicons';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {useAuth} from "../context/authContext";
 
@@ -24,7 +22,6 @@ export default function NewSpace() {
   const [tags, setTags] = useState([]);
   const {createSpaces} = useAuth();
   const [currentTag, setCurrentTag] = useState("");
-  const [visibility, setVisibility] = useState("public");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -64,7 +61,7 @@ export default function NewSpace() {
 
     try {
       setIsSubmitting(true);
-      await createSpaces(cleanTitle, cleanDescription, visibility, tags);
+      await createSpaces(cleanTitle, cleanDescription, "public", tags);
       router.push("/(tabs)");
     } catch (error) {
       Alert.alert("Create space failed", error?.message || "Something went wrong.");
@@ -135,34 +132,6 @@ export default function NewSpace() {
               ))}
             </View>
           </View>
-        </View>
-        <View style={styles.statusIconSection}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setVisibility("public")}
-            style={[
-              styles.statusIcon,
-              { backgroundColor: "#5dd76d" },
-              visibility === "public" && styles.statusSelected,
-            ]}
-          >
-            <Octicons name={visibility === "public" ? "dot-fill" : "circle"} size={18} color="black" />
-            <Octicons name="globe" size={24} color="black" />
-            <Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Public</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setVisibility("private")}
-            style={[
-              styles.statusIcon,
-              { backgroundColor: "#fc2e99" },
-              visibility === "private" && styles.statusSelected,
-            ]}
-          >
-            <Octicons name={visibility === "private" ? "dot-fill" : "circle"} size={18} color="black" />
-            <MaterialIcons name="lock-outline" size={24} color="black" />
-            <Text style={{fontFamily:'Outfit_700Bold', fontSize:22}}>Private</Text>
-          </TouchableOpacity>
         </View>
         <TouchableOpacity activeOpacity={0.7} style={styles.createButton} onPress={handleCreate} disabled={isSubmitting}>
           <Text style={{fontFamily:'Outfit_700Bold',fontSize:26}}>{isSubmitting ? "Creating..." : "Create"}</Text>
@@ -341,27 +310,6 @@ const styles = StyleSheet.create({
     tagText:{
       fontFamily:'Outfit_600SemiBold',
       fontSize:14,
-    },
-    statusIcon:{
-      display:'flex',
-      flexDirection:'row',
-      gap:5,
-      borderRadius:10,
-      borderWidth:2,
-      padding:10,
-      alignItems:'center',
-      paddingHorizontal:25,
-      justifyContent:'center',
-    },
-    statusSelected:{
-      borderWidth:3,
-    },
-    statusIconSection:{
-      display:'flex',
-      flexDirection:'row',
-      justifyContent:'center',
-      gap:20,
-      marginTop:20,
     },
     createButton:{
       display:'flex',

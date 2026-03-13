@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Screen from "../components/Screen";
-import { getMessages, sendMessage, spaceDetails } from "../services/api";
+import { getMessages, joinSpace, sendMessage, spaceDetails } from "../services/api";
 import {
   useFonts,
   Outfit_400Regular,
@@ -18,6 +18,7 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [spaceInfo, setSpaceInfo] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [autoJoinAttempted, setAutoJoinAttempted] = useState(false);
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
     Outfit_600SemiBold,
@@ -32,15 +33,32 @@ export default function ChatPage() {
 
     try {
       const created = await sendMessage(spaceId, text);
-      setMessages((prev) => [created, ...prev]);
+      setMessages((prev) => [...prev,created]);
       setDraft("");
     }
     catch (error) {
+      if (error?.status === 403 && !autoJoinAttempted) {
+        setAutoJoinAttempted(true);
+        try {
+          await joinSpace(spaceId);
+          const created = await sendMessage(spaceId, text);
+          setMessages((prev) => [...prev, created]);
+          setDraft("");
+          return;
+        } catch (joinOrRetryError) {
+          setAutoJoinAttempted(false);
+          Alert.alert("Send failed", joinOrRetryError?.message || "Something went wrong.");
+          return;
+        }
+      }
+
       Alert.alert("Send failed", error?.message || "Something went wrong.");
     }
   };
 
   useEffect(() => {
+    setAutoJoinAttempted(false);
+
     const loadChatData = async () => {
       if (!spaceId) {
         return;
@@ -71,65 +89,75 @@ export default function ChatPage() {
 
   return (
     <Screen>
-      <View style={styles.top}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          style={styles.backButton}
-          onPress={() => router.push("/(tabs)")}
-        >
-          <Ionicons name="arrow-back" size={28} color="#111" />
-        </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-          {spaceInfo?.title || "Chat"}
-        </Text>
-      </View>
-
-      <View style={styles.topic}>
-        <Text style={styles.topicText}>Conversation</Text>
-      </View>
-
-      <ScrollView
-        style={styles.chatArea}
-        contentContainerStyle={styles.chatContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoiding}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
       >
-        {messages.map((message, index) => (
-          <View key={message?.message_id || message?.id || String(index)} style={styles.messageRow}>
-            <View style={styles.bubble}>
-              <Text style={styles.senderName}>
-                @{message?.sender?.username || message?.name || "user"}
-              </Text>
-              <Text style={styles.messageText}>
-                {message?.content || message?.text || ""}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
+        <View style={styles.top}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.backButton}
+            onPress={() => router.push("/(tabs)")}
+          >
+            <Ionicons name="arrow-back" size={28} color="#111" />
+          </TouchableOpacity>
+          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+            {spaceInfo?.title || "Chat"}
+          </Text>
+        </View>
 
-      <View style={styles.inputWrap}>
-        <TextInput
-          placeholder="Type a message..."
-          placeholderTextColor="#444"
-          style={styles.input}
-          value={draft}
-          onChangeText={setDraft}
-        />
-        <TouchableOpacity activeOpacity={0.7} style={styles.sendButton}
-          onPress={sendmessage}
+        <View style={styles.topic}>
+          <Text style={styles.topicText}>Conversation</Text>
+        </View>
+
+        <ScrollView
+          style={styles.chatArea}
+          contentContainerStyle={styles.chatContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Ionicons name="send" size={22} color="#111" />
-        </TouchableOpacity>
-      </View>
+          {messages.map((message, index) => (
+            <View key={message?.message_id || message?.id || String(index)} style={styles.messageRow}>
+              <View style={styles.bubble}>
+                <Text style={styles.senderName}>
+                  @{message?.sender?.username || message?.name || "user"}
+                </Text>
+                <Text style={styles.messageText}>
+                  {message?.content || message?.text || ""}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        <View style={styles.inputWrap}>
+          <TextInput
+            placeholder="Type a message..."
+            placeholderTextColor="#444"
+            style={styles.input}
+            value={draft}
+            onChangeText={setDraft}
+          />
+          <TouchableOpacity activeOpacity={0.7} style={styles.sendButton}
+            onPress={sendmessage}
+          >
+            <Ionicons name="send" size={22} color="#111" />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoiding: {
+    flex: 1,
+  },
   top: {
     backgroundColor: "#27a6fd",
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingHorizontal: 15,
     paddingBottom: 20,
     gap: 10,
@@ -148,6 +176,9 @@ const styles = StyleSheet.create({
     fontSize: 34,
     color: "#111",
     fontFamily: "Outfit_700Bold",
+    flex: 1,
+    flexShrink: 1,
+    lineHeight: 38,
   },
   topic: {
     backgroundColor: "#feda00",

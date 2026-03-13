@@ -1,4 +1,4 @@
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Pressable, Alert} from "react-native";
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform} from "react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import Screen from "../components/Screen";
@@ -33,90 +33,100 @@ export default function LoginPage() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoiding}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
       >
-        <View style={styles.headerSection}>
-          <Text style={styles.logo}>space7</Text>
-        </View>
-        <View style={styles.formContainer}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputWrapper}>
-              <AntDesign
-                name="mail"
-                size={24}
-                color="#111"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                placeholder="Enter your email"
-                placeholderTextColor="#999"
-                style={styles.input}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-              />
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.headerSection}>
+            <Text style={styles.logo}>space7</Text>
+          </View>
+          <View style={styles.formContainer}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.inputWrapper}>
+                <AntDesign
+                  name="mail"
+                  size={24}
+                  color="#111"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  placeholder="Enter your email"
+                  placeholderTextColor="#999"
+                  style={styles.input}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                />
+              </View>
             </View>
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputWrapper}>
-              <AntDesign
-                name="lock"
-                size={24}
-                color="#111"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                placeholder="Enter your password"
-                placeholderTextColor="#999"
-                style={styles.input}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputWrapper}>
+                <AntDesign
+                  name="lock"
+                  size={24}
+                  color="#111"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  placeholder="Enter your password"
+                  placeholderTextColor="#999"
+                  style={styles.input}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+              </View>
             </View>
-          </View>
-          <Pressable
-            style={styles.loginButton}
-            activeOpacity={0.8}
-            onPress={handleLogin}
-            disabled={submitting}
-          >
-            <Text style={styles.loginButtonText}>Login</Text>
-          </Pressable>
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
+            <Pressable
+              style={styles.loginButton}
+              activeOpacity={0.8}
+              onPress={handleLogin}
+              disabled={submitting}
+            >
+              <Text style={styles.loginButtonText}>Login</Text>
+            </Pressable>
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-          <TouchableOpacity
-            style={styles.signupButton}
-            activeOpacity={0.8}
-            onPress={() => router.push("/Register")}
-          >
-            <AntDesign name="plus" size={24} color="#111" />
-            <Text style={styles.signupButtonText}>Create Account</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Don't have an account?{" "}
-            <Text
-              style={styles.footerLink}
+            <TouchableOpacity
+              style={styles.signupButton}
+              activeOpacity={0.8}
               onPress={() => router.push("/Register")}
             >
-              Sign up here
+              <AntDesign name="plus" size={24} color="#111" />
+              <Text style={styles.signupButtonText}>Create Account</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Don't have an account?{" "}
+              <Text
+                style={styles.footerLink}
+                onPress={() => router.push("/Register")}
+              >
+                Sign up here
+              </Text>
             </Text>
-          </Text>
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoiding: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: "#feda00",

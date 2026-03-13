@@ -7,13 +7,26 @@ export default function TabsLayout() {
   const router = useRouter();
 
   return (
-    <Tabs screenOptions={{ headerShown: false, tabBarStyle: styles.tab }}>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: styles.tab,
+        tabBarShowLabel: true,
+        tabBarActiveTintColor: "#111",
+        tabBarInactiveTintColor: "#5f5f5f",
+        tabBarHideOnKeyboard: true,
+        tabBarItemStyle: styles.tabItem,
+        tabBarLabelStyle: styles.tabLabel,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconWrap}>
+              <Ionicons name={focused ? "home" : "home-outline"} size={22} color={color} />
+            </View>
           ),
         }}
       />
@@ -27,8 +40,10 @@ export default function TabsLayout() {
         }}
         options={{
           title: "New Space",
-          tabBarIcon: ({ color, size }) => (
-            <Entypo name="new-message" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <View style={styles.iconWrap}>
+              <Entypo name="new-message" size={22} color={color} />
+            </View>
           ),
         }}
       />
@@ -42,8 +57,10 @@ export default function TabsLayout() {
           }}
         options={{
           title: "Discussion",
-          tabBarIcon: ({ color, size }) => (
-            <Octicons name="comment-discussion" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <View style={styles.iconWrap}>
+              <Octicons name="comment-discussion" size={22} color={color} />
+            </View>
           ),
         }}
       />
@@ -51,8 +68,10 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <View style={styles.iconWrap}>
+              <Feather name="user" size={22} color={color} />
+            </View>
           ),
         }}
       />
@@ -62,14 +81,43 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tab: {
-    borderWidth: 3.5,
-    borderTopWidth: 3.5,
-    borderColor: "black",
-    borderRadius: 15,
+    position: "absolute",
+    bottom: 16,
+    height: 72,
+    width: "92%",
+    backgroundColor: "#f5f5f5",
+    borderWidth: 3,
+    borderTopWidth: 3,
+    borderTopColor: "#111",
+    borderColor: "#111",
+    borderRadius: 24,
+    paddingHorizontal: 10,
+    paddingTop: 10,
     paddingBottom: 10,
     alignSelf: "center",
-    marginBottom:25,
-    width:'94%',
-    marginHorizontal:110,
+    marginHorizontal: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 100,
+    overflow: "visible",
+  },
+  tabItem: {
+    marginHorizontal: 2,
+  },
+  tabLabel: {
+    fontSize: 11,
+    marginBottom: 4,
+    fontWeight: "700",
+  },
+  iconWrap: {
+    width: 44,
+    height: 32,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
   },
 });

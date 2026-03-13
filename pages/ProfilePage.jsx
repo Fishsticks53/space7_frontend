@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import Screen from "../components/Screen";
 import Feather from "@expo/vector-icons/Feather";
 import Entypo from "@expo/vector-icons/Entypo";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../context/authContext";
 import { useState, useEffect } from "react";
@@ -64,9 +63,6 @@ export default function ProfilePage() {
               <Feather name="arrow-left" size={30} color="black" />
             </TouchableOpacity>
             <Text style={styles.userName}>@ {details.username}</Text>
-            <TouchableOpacity onPress={() => router.push("/edit-profile")}>
-              <Entypo name="dots-three-horizontal" size={30} color="black" />
-            </TouchableOpacity>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
@@ -137,7 +133,6 @@ export default function ProfilePage() {
                 : 0;
 
               const tags = Array.isArray(space?.tags) ? space.tags : [];
-              const isPrivate = String(space?.visibility || "public").toLowerCase() === "private";
 
               return (
                 <TouchableOpacity
@@ -176,14 +171,6 @@ export default function ProfilePage() {
                     </View>
 
                     <View style={styles.spaceTagsRow}>
-                      <View style={styles.spaceVisibilityBadge}>
-                        <Ionicons
-                          name={isPrivate ? "lock-closed-outline" : "globe-outline"}
-                          size={14}
-                          color="black"
-                        />
-                        <Text style={styles.spaceVisibilityText}>{isPrivate ? "private" : "public"}</Text>
-                      </View>
                       {tags.map((tag, tagIndex) => {
                         const cardColorIndex = index % colors.length;
                         const availableColors = colors.filter((_, i) => i !== cardColorIndex);
@@ -214,7 +201,7 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingHorizontal: 18,
     backgroundColor: "#27a6fd",
-    paddingBottom: 50,
+    paddingBottom: 70,
   },
   icons: {
     flexDirection: "row",
@@ -403,22 +390,6 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     fontWeight: "bold",
     fontSize: 15,
-  },
-  spaceVisibilityBadge: {
-    backgroundColor: "#feda00",
-    borderWidth: 2,
-    borderColor: "black",
-    borderRadius: 7,
-    paddingHorizontal: 8,
-    paddingVertical: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  spaceVisibilityText: {
-    fontWeight: "bold",
-    fontSize: 15,
-    color: "black",
   },
   logoutButton: {
     backgroundColor: "#fc55aa",

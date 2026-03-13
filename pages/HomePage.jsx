@@ -1,7 +1,6 @@
 import {
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   ScrollView,
@@ -9,13 +8,9 @@ import {
 } from "react-native";
 import { useEffect, useState } from "react";
 import Screen from "../components/Screen";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import AntDesign from "@expo/vector-icons/AntDesign";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Feather from "@expo/vector-icons/Feather";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
-import Entypo from "@expo/vector-icons/Entypo";
 import { recommendedSpaces, trendingSpaces } from "../services/api";
 import { useRouter } from "expo-router"; 
 
@@ -65,32 +60,8 @@ export default function HomePage() {
         <View style={styles.headerArea}>
           <View style={styles.topRow}>
             <Text style={styles.logo}>space7</Text>
-            <View style={styles.iconRow}>
-              <View style={styles.bellWrap}>
-                <Ionicons name="notifications-outline" size={32} color="#111" />
-              </View>
-              <View style={styles.menuWrap}>
-                <Entypo name="menu" size={28} color="#111" />
-              </View>
-            </View>
           </View>
 
-          <View style={styles.searchBar}>
-            <FontAwesome
-              name="search"
-              size={30}
-              color="#111"
-              style={styles.searchIcon}
-            />
-            <TextInput
-              placeholder="Search topics or users..."
-              placeholderTextColor="#333"
-              style={styles.searchInput}
-            />
-            <TouchableOpacity style={styles.searchArrow} activeOpacity={1}>
-              <AntDesign name="arrow-right" size={30} color="black" />
-            </TouchableOpacity>
-          </View>
         </View>
 
         <ScrollView
@@ -112,7 +83,6 @@ export default function HomePage() {
           >
             {trendingCards.map((card, index) => {
               const tags = Array.isArray(card?.tags) ? card.tags : [];
-              const isPrivate = String(card?.visibility || "public").toLowerCase() === "private";
               const creator = card?.creator?.username ?? fallbackCreator;
               const count =
                 card?.participant_count ??
@@ -155,14 +125,6 @@ export default function HomePage() {
                   </View>
 
                   <View style={[styles.tagRow, styles.tagRowTrending]}>
-                    <View style={[styles.tag, styles.tagVisibility, styles.visibilityTag]}>
-                      <Ionicons
-                        name={isPrivate ? "lock-closed-outline" : "globe-outline"}
-                        size={14}
-                        color="black"
-                      />
-                      <Text style={styles.visibilityText}>{isPrivate ? "private" : "public"}</Text>
-                    </View>
                     {tags.length === 0 ? (
                       <Text style={[styles.tag, styles.tagBlue]}>#general</Text>
                     ) : (
@@ -195,7 +157,6 @@ export default function HomePage() {
 
           {recommendedCards.map((card, index) => {
             const tags = Array.isArray(card?.tags) ? card.tags : [];
-            const isPrivate = String(card?.visibility || "public").toLowerCase() === "private";
             const creator = card?.creator?.username || fallbackCreator;
             const count =
               card?.participant_count ??
@@ -227,14 +188,6 @@ export default function HomePage() {
                 </View>
 
                 <View style={styles.tagRow}>
-                  <View style={[styles.tag, styles.tagVisibility, styles.visibilityTag]}>
-                    <Ionicons
-                      name={isPrivate ? "lock-closed-outline" : "globe-outline"}
-                      size={14}
-                      color="#111"
-                    />
-                    <Text style={styles.visibilityText}>{isPrivate ? "private" : "public"}</Text>
-                  </View>
                   {tags.length === 0 ? (
                     <Text style={[styles.tag, styles.tagPurple]}>#general</Text>
                   ) : (
@@ -281,62 +234,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#111",
     marginRight: "auto",
-  },
-  iconRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-  },
-  bellWrap: {
-    padding: 6,
-    borderRadius: 12,
-    position: "relative",
-    backgroundColor: "#feda00",
-    borderRadius: 15,
-    borderWidth: 3,
-    borderColor: "black",
-  },
-  menuWrap: {
-    backgroundColor: "#fc3099",
-    borderRadius: 10,
-    borderWidth: 3,
-    borderColor: "#111",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  searchBar: {
-    marginTop: 14,
-    backgroundColor: "#ececec",
-    borderWidth: 4,
-    borderColor: "#111",
-    borderRadius: 22,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingLeft: 14,
-    paddingRight: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 2,
-    shadowOffset: { width: 4, height: 6 },
-    elevation: 4,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 20,
-    color: "#111",
-    paddingVertical: 12,
-  },
-  searchArrow: {
-    backgroundColor: "#feda03",
-    borderWidth: 3,
-    borderColor: "#111",
-    borderRadius: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 2,
   },
   content: {
     flex: 1,
@@ -470,19 +367,6 @@ const styles = StyleSheet.create({
   },
   tagPurple: {
     backgroundColor: "#6f65ff",
-  },
-  tagVisibility: {
-    backgroundColor: "#feda03",
-  },
-  visibilityTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  visibilityText: {
-    color: "#111",
-    fontSize: 14,
-    fontWeight: "700",
   },
   recCard: {
     marginTop: 12,

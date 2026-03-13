@@ -7,6 +7,8 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
@@ -94,15 +96,21 @@ export default function RegisterPage() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoiding}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
       >
-        <View style={styles.headerSection}>
-          <Text style={styles.logo}>space7</Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.headerSection}>
+            <Text style={styles.logo}>space7</Text>
+          </View>
 
-        <View style={styles.formContainer}>
+          <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Username</Text>
             <View style={styles.inputWrapper}>
@@ -246,14 +254,18 @@ export default function RegisterPage() {
             <AntDesign name="login" size={24} color="#111" />
             <Text style={styles.signupButtonText}>Back To Login</Text>
           </TouchableOpacity>
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoiding: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: "#feda00",
