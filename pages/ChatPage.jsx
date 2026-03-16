@@ -1,15 +1,55 @@
-import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import Feather from "@expo/vector-icons/Feather";
+import { io } from "socket.io-client";
+import { Image } from "expo-image";
+import { VideoView, useVideoPlayer } from "expo-video";
 import Screen from "../components/Screen";
-import { getMessages, joinSpace, sendMessage, spaceDetails } from "../services/api";
+import { getMessages, sendMessage, spaceDetails } from "../services/api";
 import {
   useFonts,
   Outfit_400Regular,
   Outfit_600SemiBold,
   Outfit_700Bold,
 } from "@expo-google-fonts/outfit";
+
+const DEFAULT_API_BASE =
+  Platform.OS === "android" ? "http://10.0.2.2:5000/api" : "http://localhost:5000/api";
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE;
+const SOCKET_URL = API_BASE.replace(/\/api\/?$/, "");
+
+const getId = (message) => message?.message_id || message?.id;
+
+function InlinePlayer({ uri, isAudio = false }) {
+  const player = useVideoPlayer(uri, (instance) => {
+    instance.loop = false;
+  });
+
+  return (
+    <View style={isAudio ? styles.audioWrap : styles.videoWrap}>
+      <VideoView
+        player={player}
+        style={isAudio ? styles.audioPlayer : styles.videoPlayer}
+        nativeControls
+      />
+    </View>
+  );
+}
 
 export default function ChatPage() {
   const router = useRouter();
@@ -18,242 +58,263 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [spaceInfo, setSpaceInfo] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [autoJoinAttempted, setAutoJoinAttempted] = useState(false);
+  const [pickedMedia, setPickedMedia] = useState(null);
+  const [expandedImageUri, setExpandedImageUri] = useState(null);
+  const scrollRef = useRef(null);
+  const socketRef = useRef(null);
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
     Outfit_600SemiBold,
     Outfit_700Bold,
   });
 
-  const sendmessage = async () => {
-    const text = draft.trim();
-    if (!text) {
-      return;
-    }
-
-    try {
-      const created = await sendMessage(spaceId, text);
-      setMessages((prev) => [...prev,created]);
-      setDraft("");
-    }
-    catch (error) {
-      if (error?.status === 403 && !autoJoinAttempted) {
-        setAutoJoinAttempted(true);
-        try {
-          await joinSpace(spaceId);
-          const created = await sendMessage(spaceId, text);
-          setMessages((prev) => [...prev, created]);
-          setDraft("");
-          return;
-        } catch (joinOrRetryError) {
-          setAutoJoinAttempted(false);
-          Alert.alert("Send failed", joinOrRetryError?.message || "Something went wrong.");
-          return;
-        }
-      }
-
-      Alert.alert("Send failed", error?.message || "Something went wrong.");
-    }
+  const normalizeMessages = (messageData) => {
+    const list = Array.isArray(messageData) ? messageData : messageData?.messages || [];
+    const chronological = [...list].reverse();
+    const seen = new Set();
+    return chronological.filter((message) => {
+      const id = getId(message);
+      if (!id) return true;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
   };
 
   useEffect(() => {
-    setAutoJoinAttempted(false);
+    let mounted = true;
 
-    const loadChatData = async () => {
-      if (!spaceId) {
-        return;
-      }
-
+    const load = async () => {
+      if (!spaceId) return;
       try {
         const [spaceData, messageData] = await Promise.all([
           spaceDetails(spaceId),
           getMessages(spaceId),
         ]);
-
+        if (!mounted) return;
         setSpaceInfo(spaceData || null);
-        const list = Array.isArray(messageData)
-          ? messageData
-          : messageData?.messages || [];
-        setMessages(list);
+        setMessages(normalizeMessages(messageData));
       } catch (error) {
+        if (!mounted) return;
         Alert.alert("Load failed", error?.message || "Something went wrong.");
-        setSpaceInfo(null);
-        setMessages([]);
       }
     };
 
-    loadChatData();
+    load();
+    return () => {
+      mounted = false;
+    };
   }, [spaceId]);
+
+  useEffect(() => {
+    let mounted = true;
+    const setupSocket = async () => {
+      if (!spaceId) return;
+      const token = await SecureStore.getItemAsync("jwt_token");
+      if (!token || !mounted) return;
+
+      const socket = io(SOCKET_URL, {
+        transports: ["websocket"],
+        auth: { token },
+      });
+      socketRef.current = socket;
+
+      socket.on("connect", () => {
+        socket.emit("join_space", spaceId);
+      });
+
+      socket.on("receive_message", (incoming) => {
+        setMessages((prev) => {
+          const incomingId = getId(incoming);
+          if (incomingId && prev.some((m) => getId(m) === incomingId)) return prev;
+          return [...prev, incoming];
+        });
+      });
+    };
+
+    setupSocket();
+    return () => {
+      mounted = false;
+      if (socketRef.current) {
+        socketRef.current.emit("leave_space", spaceId);
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [spaceId]);
+
+  const onPickMedia = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow media library access.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: [ImagePicker.MediaType.images, ImagePicker.MediaType.videos],
+      allowsMultipleSelection: false,
+      quality: 0.9,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    const mediaType = asset.type === "video" ? "video" : "image";
+
+    setPickedMedia({
+      uri: asset.uri,
+      fileName: asset.fileName || `media-${Date.now()}`,
+      mimeType: asset.mimeType || (mediaType === "video" ? "video/mp4" : "image/jpeg"),
+      mediaType,
+    });
+  };
+
+  const onSend = async () => {
+    const text = draft.trim();
+    if (!text && !pickedMedia) return;
+
+    try {
+      const created = await sendMessage(spaceId, text, undefined, pickedMedia);
+      setMessages((prev) => [...prev, created]);
+      if (socketRef.current) {
+        socketRef.current.emit("send_message", { spaceId, message: created });
+      }
+      setDraft("");
+      setPickedMedia(null);
+    } catch (error) {
+      Alert.alert("Send failed", error?.message || "Something went wrong.");
+    }
+  };
 
   if (!fontsLoaded) return null;
 
   return (
     <Screen>
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoiding}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
+      <View style={styles.top}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push("/(tabs)")}>
+          <Ionicons name="arrow-back" size={28} color="#111" />
+        </TouchableOpacity>
+        <Text style={styles.title} numberOfLines={1}>
+          {spaceInfo?.title || "Chat"}
+        </Text>
+      </View>
+
+      <View style={styles.topic}>
+        <Text style={styles.topicText}>Conversation</Text>
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        style={styles.chatArea}
+        contentContainerStyle={styles.chatContent}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
-        <View style={styles.top}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={styles.backButton}
-            onPress={() => router.push("/(tabs)")}
-          >
-            <Ionicons name="arrow-back" size={28} color="#111" />
-          </TouchableOpacity>
-          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
-            {spaceInfo?.title || "Chat"}
-          </Text>
-        </View>
+        {messages.map((message, index) => (
+          <View key={getId(message) || String(index)} style={styles.messageRow}>
+            <View style={styles.bubble}>
+              <Text style={styles.senderName}>@{message?.sender?.username || "user"}</Text>
 
-        <View style={styles.topic}>
-          <Text style={styles.topicText}>Conversation</Text>
-        </View>
+              {message?.media_url && message?.media_type === "image" ? (
+                <View style={styles.imageWrap}>
+                  <TouchableOpacity onPress={() => setExpandedImageUri(message.media_url)}>
+                    <Image source={{ uri: message.media_url }} style={styles.mediaImage} contentFit="cover" />
+                  </TouchableOpacity>
+                  {(message?.content || message?.text) ? (
+                    <Text style={styles.captionText}>{message?.content || message?.text}</Text>
+                  ) : null}
+                </View>
+              ) : (
+                <Text style={styles.messageText}>{message?.content || message?.text || ""}</Text>
+              )}
 
-        <ScrollView
-          style={styles.chatArea}
-          contentContainerStyle={styles.chatContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
-        >
-          {messages.map((message, index) => (
-            <View key={message?.message_id || message?.id || String(index)} style={styles.messageRow}>
-              <View style={styles.bubble}>
-                <Text style={styles.senderName}>
-                  @{message?.sender?.username || message?.name || "user"}
-                </Text>
-                <Text style={styles.messageText}>
-                  {message?.content || message?.text || ""}
-                </Text>
-              </View>
+              {message?.media_url && message?.media_type === "video" ? (
+                <InlinePlayer uri={message.media_url} />
+              ) : null}
+              {message?.media_url && message?.media_type === "audio" ? (
+                <InlinePlayer uri={message.media_url} isAudio />
+              ) : null}
             </View>
-          ))}
-        </ScrollView>
+          </View>
+        ))}
+      </ScrollView>
 
-        <View style={styles.inputWrap}>
-          <TextInput
-            placeholder="Type a message..."
-            placeholderTextColor="#444"
-            style={styles.input}
-            value={draft}
-            onChangeText={setDraft}
-          />
-          <TouchableOpacity activeOpacity={0.7} style={styles.sendButton}
-            onPress={sendmessage}
-          >
-            <Ionicons name="send" size={22} color="#111" />
+      {pickedMedia ? (
+        <View style={styles.previewWrap}>
+          <Text style={styles.previewTitle}>Attachment ready</Text>
+          {pickedMedia.mediaType === "image" ? (
+            <Image source={{ uri: pickedMedia.uri }} style={styles.previewImage} contentFit="cover" />
+          ) : (
+            <Text style={styles.previewText}>{pickedMedia.fileName}</Text>
+          )}
+          <TouchableOpacity onPress={() => setPickedMedia(null)}>
+            <Text style={styles.previewRemove}>Remove</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      ) : null}
+
+      <View style={styles.inputWrap}>
+        <TouchableOpacity style={styles.attachButton} onPress={onPickMedia}>
+          <Feather name="paperclip" size={20} color="#111" />
+        </TouchableOpacity>
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          style={styles.input}
+          placeholder="Type a message..."
+          placeholderTextColor="#444"
+        />
+        <TouchableOpacity style={styles.sendButton} onPress={onSend}>
+          <Ionicons name="send" size={22} color="#111" />
+        </TouchableOpacity>
+      </View>
+
+      <Modal visible={!!expandedImageUri} transparent animationType="fade" onRequestClose={() => setExpandedImageUri(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setExpandedImageUri(null)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            {expandedImageUri ? (
+              <Image source={{ uri: expandedImageUri }} style={styles.expandedImage} contentFit="contain" />
+            ) : null}
+            <TouchableOpacity style={styles.closeButtonModal} onPress={() => setExpandedImageUri(null)}>
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardAvoiding: {
-    flex: 1,
-  },
-  top: {
-    backgroundColor: "#27a6fd",
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingHorizontal: 15,
-    paddingBottom: 20,
-    gap: 10,
-    paddingTop:40,
-  },
-  backButton: {
-    backgroundColor: "#feda00",
-    borderWidth: 3,
-    borderColor: "#111",
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    marginRight:10,
-  },
-  title: {
-    fontSize: 34,
-    color: "#111",
-    fontFamily: "Outfit_700Bold",
-    flex: 1,
-    flexShrink: 1,
-    lineHeight: 38,
-  },
-  topic: {
-    backgroundColor: "#feda00",
-    borderWidth: 3,
-    borderColor: "#111",
-    paddingVertical: 12,
-  },
-  topicText: {
-    fontSize: 28,
-    color: "#111",
-    marginLeft: 14,
-    fontFamily: "Outfit_700Bold",
-  },
-  chatArea: {
-    flex: 1,
-    backgroundColor: "white",
-  },
-  chatContent: {
-    padding: 14,
-    gap: 10,
-  },
-  messageRow: {
-    width: "100%",
-    marginBottom: 8,
-  },
-  bubble: {
-    width: "100%",
-    borderWidth: 3,
-    borderColor: "#111",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#dedede",
-  },
-  senderName: {
-    fontSize: 13,
-    color: "#111",
-    fontFamily: "Outfit_600SemiBold",
-    marginBottom: 2,
-  },
-  messageText: {
-    fontSize: 16,
-    color: "#111",
-    fontFamily: "Outfit_400Regular",
-  },
-  inputWrap: {
-    backgroundColor: "#fc56aa",
-    borderTopWidth: 3,
-    borderColor: "#111",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderWidth: 3,
-    borderColor: "#111",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    fontFamily: "Outfit_400Regular",
-    color: "#111",
-  },
-  sendButton: {
-    backgroundColor: "#feda00",
-    borderWidth: 3,
-    borderColor: "#111",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  top: { backgroundColor: "#27a6fd", flexDirection: "row", alignItems: "center", paddingHorizontal: 15, paddingBottom: 20, gap: 10, paddingTop: 40 },
+  backButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 8, marginRight: 10 },
+  title: { fontSize: 34, color: "#111", fontFamily: "Outfit_700Bold" },
+  topic: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", paddingVertical: 12 },
+  topicText: { fontSize: 28, color: "#111", marginLeft: 14, fontFamily: "Outfit_700Bold" },
+  chatArea: { flex: 1, backgroundColor: "white" },
+  chatContent: { padding: 14, gap: 10 },
+  messageRow: { width: "100%", marginBottom: 8, alignItems: "flex-start" },
+  bubble: { maxWidth: "90%", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: "#dedede" },
+  senderName: { fontSize: 13, color: "#111", fontFamily: "Outfit_600SemiBold", marginBottom: 2 },
+  messageText: { fontSize: 16, color: "#111", fontFamily: "Outfit_400Regular" },
+  imageWrap: { width: 270, alignSelf: "flex-start" },
+  mediaImage: { width: 270, height: 210, borderRadius: 12, marginTop: 6, borderWidth: 2, borderColor: "#111" },
+  captionText: { marginTop: 8, fontSize: 15, color: "#111", fontFamily: "Outfit_400Regular" },
+  videoWrap: { marginTop: 8, width: 270, borderWidth: 2, borderColor: "#111", borderRadius: 12, overflow: "hidden", backgroundColor: "#000" },
+  videoPlayer: { width: "100%", height: 220 },
+  audioWrap: { marginTop: 8, width: 270, borderWidth: 2, borderColor: "#111", borderRadius: 12, overflow: "hidden", backgroundColor: "#fff" },
+  audioPlayer: { width: "100%", height: 64 },
+  previewWrap: { backgroundColor: "#fff9d6", borderTopWidth: 2, borderColor: "#111", paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
+  previewTitle: { fontSize: 13, color: "#333", fontFamily: "Outfit_600SemiBold" },
+  previewImage: { width: 120, height: 80, borderRadius: 8, borderWidth: 2, borderColor: "#111" },
+  previewText: { fontSize: 13, color: "#111", fontFamily: "Outfit_400Regular" },
+  previewRemove: { fontSize: 13, color: "#9c1028", fontFamily: "Outfit_700Bold" },
+  inputWrap: { backgroundColor: "#fc56aa", borderTopWidth: 3, borderColor: "#111", flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
+  attachButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 10, justifyContent: "center", alignItems: "center" },
+  input: { flex: 1, backgroundColor: "#fff", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, fontFamily: "Outfit_400Regular", color: "#111" },
+  sendButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: "center", alignItems: "center" },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "center", alignItems: "center", padding: 16 },
+  modalContent: { width: "100%", maxWidth: 420, backgroundColor: "#111", borderRadius: 12, borderWidth: 2, borderColor: "#fff", padding: 10, alignItems: "center", gap: 10 },
+  expandedImage: { width: "100%", height: 420, borderRadius: 10, backgroundColor: "#000" },
+  closeButtonModal: { borderWidth: 2, borderColor: "#111", borderRadius: 8, backgroundColor: "#feda00", paddingHorizontal: 12, paddingVertical: 6 },
+  closeButtonText: { color: "#111", fontFamily: "Outfit_700Bold" },
 });

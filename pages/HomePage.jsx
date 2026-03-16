@@ -1,6 +1,7 @@
 import {
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   ScrollView,
@@ -11,6 +12,7 @@ import Screen from "../components/Screen";
 import Feather from "@expo/vector-icons/Feather";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { recommendedSpaces, trendingSpaces } from "../services/api";
 import { useRouter } from "expo-router"; 
 
@@ -18,6 +20,8 @@ const trendingColors = ["#feda03", "#5dd76c", "#fc55aa", "#41b4fb"];
 const recommendedColors = ["#fc56aa", "#8ad8f5", "#5dd76d", "#feda03"];
 
 const fallbackCreator = "space7";
+const isPublicSpace = (space) =>
+  String(space?.visibility || "public").toLowerCase() !== "private";
 
 export default function HomePage() {
   const router = useRouter();
@@ -36,7 +40,7 @@ export default function HomePage() {
         const trendingList = Array.isArray(trendingData)
           ? trendingData
           : trendingData?.spaces || [];
-        setTrendingCards(trendingList);
+        setTrendingCards(trendingList.filter(isPublicSpace));
       } else {
         Alert.alert("Load failed", trendingResult.reason?.message || "Unable to fetch trending topics");
         setTrendingCards([]);
@@ -50,7 +54,7 @@ export default function HomePage() {
             recommendedData?.recomended ||
             recommendedData?.spaces ||
             [];
-        setRecommendedCards(recommendedList);
+        setRecommendedCards(recommendedList.filter(isPublicSpace));
       } else {
         const error = recommendedResult.reason;
         const message = String(error?.message || "").toLowerCase();
@@ -75,8 +79,24 @@ export default function HomePage() {
         <View style={styles.headerArea}>
           <View style={styles.topRow}>
             <Text style={styles.logo}>space7</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.bellWrap}
+              onPress={() => router.push("/Notification")}
+            >
+              <Ionicons name="notifications-outline" size={30} color="#111" />
+            </TouchableOpacity>
           </View>
 
+          <TouchableOpacity style={styles.searchBar} activeOpacity={0.9} onPress={() => router.push("/SearchBar")}>
+            <Ionicons name="search" size={24} color="#111" />
+            <TextInput
+              editable={false}
+              placeholder="Search topics or users..."
+              placeholderTextColor="#333"
+              style={styles.searchInput}
+            />
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -249,6 +269,33 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#111",
     marginRight: "auto",
+  },
+  bellWrap: {
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 12,
+    backgroundColor: "#feda03",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchBar: {
+    marginTop: 14,
+    backgroundColor: "#ececec",
+    borderWidth: 4,
+    borderColor: "#111",
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 18,
+    color: "#111",
+    paddingVertical: 10,
   },
   content: {
     flex: 1,
