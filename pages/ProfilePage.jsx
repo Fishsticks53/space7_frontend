@@ -2,7 +2,6 @@ import { Text, View, StyleSheet, TouchableOpacity, ScrollView } from "react-nati
 import { useRouter } from "expo-router";
 import Screen from "../components/Screen";
 import Feather from "@expo/vector-icons/Feather";
-import Entypo from "@expo/vector-icons/Entypo";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../context/authContext";
 import { useState, useEffect } from "react";
@@ -84,9 +83,11 @@ export default function ProfilePage() {
       return sum + (Number(count) || 0);
     }, 0);
 
+  const resolvedBio = String(user?.bio ?? user?.description ?? "").trim();
+
   const details = {
     username: user?.username || "User",
-    description: "Startup Enthusiast Book Lover",
+    description: resolvedBio || "No bio added yet.",
     createdSpaces: createdSpacesCount,
     participatedSpaces: participatedSpacesCount,
     activeUsersSpace: createdParticipants || totalParticipants,
@@ -120,6 +121,12 @@ export default function ProfilePage() {
                 {details.description}
               </Text>
             </View>
+            <TouchableOpacity
+              style={styles.editProfileButton}
+              onPress={() => router.push("/edit-profile")}
+            >
+              <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.statsWrap}>
@@ -299,6 +306,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111",
     textAlign: "center",
+  },
+  editProfileButton: {
+    marginTop: 10,
+    backgroundColor: "#27a6fd",
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  editProfileButtonText: {
+    color: "#111",
+    fontSize: 14,
+    fontWeight: "900",
   },
   statsWrap: {
     flexDirection: "row",

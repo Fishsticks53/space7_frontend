@@ -307,6 +307,103 @@ export async function joinSpace(spaceId, inviteCode, authToken) {
   });
 }
 
+export async function updateUsername(username, authToken) {
+  if (!username?.trim()) {
+    throw new Error("Username cannot be empty.");
+  }
+
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request("/profile/username", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({ username: username.trim() }),
+  });
+}
+
+export async function updateBio(bio, authToken) {
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request("/profile/bio", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({ bio: String(bio || "").trim() }),
+  });
+}
+
+export async function updateProfilePicture(imageAsset, authToken) {
+  if (!imageAsset?.uri) {
+    throw new Error("Missing image.");
+  }
+
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  const formData = new FormData();
+  formData.append("avatar", {
+    uri: imageAsset.uri,
+    name: imageAsset.fileName || `avatar-${Date.now()}.jpg`,
+    type: imageAsset.mimeType || "image/jpeg",
+  });
+
+  return request("/profile/picture", {
+    method: "PUT",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+    body: formData,
+  });
+}
+
+export async function updatePassword(currentPassword, newPassword, authToken) {
+  if (!currentPassword || !newPassword) {
+    throw new Error("Current and new password are required.");
+  }
+
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request("/profile/password", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+export async function deleteMyAccount(authToken) {
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request("/profile/account", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+}
+
 export async function deleteMessage(spaceId, messageId, authToken) {
   if (!spaceId) {
     throw new Error("Missing space id.");
