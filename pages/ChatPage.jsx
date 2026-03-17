@@ -20,7 +20,8 @@ import { io } from "socket.io-client";
 import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
 import Screen from "../components/Screen";
-import { getMessages, sendMessage, spaceDetails } from "../services/api";
+import { deleteMessage, getMessages, joinSpace, likeMessage, sendMessage, spaceDetails } from "../services/api";
+import { useAuth } from "../context/authContext";
 import {
   useFonts,
   Outfit_400Regular,
@@ -30,10 +31,34 @@ import {
 
 const DEFAULT_API_BASE =
   Platform.OS === "android" ? "http://10.0.2.2:5000/api" : "http://localhost:5000/api";
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE;
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_BASE;
 const SOCKET_URL = API_BASE.replace(/\/api\/?$/, "");
 
 const getId = (message) => message?.message_id || message?.id;
+
+const isMembershipError = (error) => {
+  const status = error?.status;
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    status === 401 ||
+    status === 403 ||
+    message.includes("not part") ||
+    message.includes("not member") ||
+    message.includes("join") ||
+    message.includes("participant")
+  );
+};
+
+const shouldJoinBeforeSend = (spaceInfo) => {
+  if (!spaceInfo || typeof spaceInfo !== "object") return false;
+  if (spaceInfo?.is_member === false) return true;
+  if (spaceInfo?.is_participant === false) return true;
+  if (spaceInfo?.is_joined === false) return true;
+  if (spaceInfo?.joined === false) return true;
+  if (spaceInfo?.membership_status === "not_member") return true;
+  if (spaceInfo?.membership?.is_member === false) return true;
+  return false;
+};
 
 function InlinePlayer({ uri, isAudio = false }) {
   const player = useVideoPlayer(uri, (instance) => {
@@ -53,6 +78,7 @@ function InlinePlayer({ uri, isAudio = false }) {
 
 export default function ChatPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useLocalSearchParams();
   const spaceId = params?.spaceId || params?.spaceid;
   const [draft, setDraft] = useState("");
@@ -114,7 +140,7 @@ export default function ChatPage() {
       if (!token || !mounted) return;
 
       const socket = io(SOCKET_URL, {
-        transports: ["websocket"],
+        transports: ["websocket", "polling"],
         auth: { token },
       });
       socketRef.current = socket;
@@ -129,6 +155,24 @@ export default function ChatPage() {
           if (incomingId && prev.some((m) => getId(m) === incomingId)) return prev;
           return [...prev, incoming];
         });
+      });
+
+      socket.on("message_deleted", (payload) => {
+        const deletedId = payload?.message_id || payload?.id;
+        if (!deletedId) return;
+        setMessages((prev) => prev.filter((msg) => getId(msg) !== deletedId));
+      });
+
+      socket.on("message_liked", (payload) => {
+        const likedId = payload?.message_id || payload?.id;
+        if (!likedId) return;
+        setMessages((prev) =>
+          prev.map((msg) => (getId(msg) === likedId ? { ...msg, ...payload } : msg))
+        );
+      });
+
+      socket.on("connect_error", () => {
+        // Keep UI usable while backend websocket is unavailable.
       });
     };
 
@@ -173,6 +217,10 @@ export default function ChatPage() {
     if (!text && !pickedMedia) return;
 
     try {
+      if (shouldJoinBeforeSend(spaceInfo)) {
+        await joinSpace(spaceId);
+      }
+
       const created = await sendMessage(spaceId, text, undefined, pickedMedia);
       setMessages((prev) => [...prev, created]);
       if (socketRef.current) {
@@ -181,11 +229,87 @@ export default function ChatPage() {
       setDraft("");
       setPickedMedia(null);
     } catch (error) {
+      if (isMembershipError(error)) {
+        try {
+          await joinSpace(spaceId);
+          const created = await sendMessage(spaceId, text, undefined, pickedMedia);
+          setMessages((prev) => [...prev, created]);
+          if (socketRef.current) {
+            socketRef.current.emit("send_message", { spaceId, message: created });
+          }
+          setDraft("");
+          setPickedMedia(null);
+          return;
+        } catch (retryError) {
+          Alert.alert("Send failed", retryError?.message || "Something went wrong.");
+          return;
+        }
+      }
       Alert.alert("Send failed", error?.message || "Something went wrong.");
     }
   };
 
-  if (!fontsLoaded) return null;
+  const currentUserId = user?.id || user?.user_id;
+  const isOwnMessage = (message) => {
+    const senderId = message?.sender?.id || message?.sender?.user_id || message?.sender_id;
+    return !!currentUserId && String(senderId) === String(currentUserId);
+  };
+
+  const getLikeCount = (message) =>
+    message?.appreciation_count ??
+    message?.like_count ??
+    message?.likes_count ??
+    (Array.isArray(message?.likes) ? message.likes.length : 0);
+
+  const onDeleteMessage = async (message) => {
+    const messageId = getId(message);
+    if (!messageId) return;
+    try {
+      await deleteMessage(spaceId, messageId);
+      setMessages((prev) => prev.filter((msg) => getId(msg) !== messageId));
+      if (socketRef.current) {
+        socketRef.current.emit("delete_message", { spaceId, messageId });
+      }
+    } catch (error) {
+      Alert.alert("Delete failed", error?.message || "Unable to delete message.");
+    }
+  };
+
+  const onLikeMessage = async (message) => {
+    const messageId = getId(message);
+    if (!messageId) return;
+    try {
+      const updated = await likeMessage(spaceId, messageId);
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (getId(msg) !== messageId) return msg;
+          if (typeof updated?.appreciated === "boolean") {
+            const nextCount = Math.max(
+              0,
+              getLikeCount(msg) + (updated.appreciated ? 1 : -1)
+            );
+            return { ...msg, ...updated, appreciation_count: nextCount };
+          }
+          return { ...msg, ...updated };
+        })
+      );
+      if (socketRef.current) {
+        socketRef.current.emit("like_message", { spaceId, messageId });
+      }
+    } catch (error) {
+      Alert.alert("Like failed", error?.message || "Unable to like message.");
+    }
+  };
+
+  if (!fontsLoaded) {
+    return (
+      <Screen>
+        <View style={styles.loadingWrap}>
+          <Text style={styles.loadingText}>Loading chat...</Text>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -233,6 +357,19 @@ export default function ChatPage() {
               {message?.media_url && message?.media_type === "audio" ? (
                 <InlinePlayer uri={message.media_url} isAudio />
               ) : null}
+
+              <View style={styles.messageActions}>
+                <TouchableOpacity style={styles.actionButton} onPress={() => onLikeMessage(message)}>
+                  <Ionicons name="heart-outline" size={16} color="#111" />
+                  <Text style={styles.actionText}>{getLikeCount(message)}</Text>
+                </TouchableOpacity>
+                {isOwnMessage(message) ? (
+                  <TouchableOpacity style={styles.actionButton} onPress={() => onDeleteMessage(message)}>
+                    <Ionicons name="trash-outline" size={16} color="#9c1028" />
+                    <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
             </View>
           </View>
         ))}
@@ -285,6 +422,8 @@ export default function ChatPage() {
 }
 
 const styles = StyleSheet.create({
+  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
+  loadingText: { fontSize: 18, color: "#111", fontWeight: "700" },
   top: { backgroundColor: "#27a6fd", flexDirection: "row", alignItems: "center", paddingHorizontal: 15, paddingBottom: 20, gap: 10, paddingTop: 40 },
   backButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 8, marginRight: 10 },
   title: { fontSize: 34, color: "#111", fontFamily: "Outfit_700Bold" },
@@ -296,6 +435,10 @@ const styles = StyleSheet.create({
   bubble: { maxWidth: "90%", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: "#dedede" },
   senderName: { fontSize: 13, color: "#111", fontFamily: "Outfit_600SemiBold", marginBottom: 2 },
   messageText: { fontSize: 16, color: "#111", fontFamily: "Outfit_400Regular" },
+  messageActions: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 12 },
+  actionButton: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 2 },
+  actionText: { fontSize: 13, color: "#111", fontFamily: "Outfit_600SemiBold" },
+  deleteText: { color: "#9c1028" },
   imageWrap: { width: 270, alignSelf: "flex-start" },
   mediaImage: { width: 270, height: 210, borderRadius: 12, marginTop: 6, borderWidth: 2, borderColor: "#111" },
   captionText: { marginTop: 8, fontSize: 15, color: "#111", fontFamily: "Outfit_400Regular" },

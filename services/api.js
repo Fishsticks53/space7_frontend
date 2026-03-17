@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 
 const DEFAULT_BASE_URL =
   Platform.OS === "android" ? "http://10.0.2.2:5000/api" : "http://localhost:5000/api";
-const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_BASE_URL;
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEFAULT_BASE_URL;
 
 async function parseResponse(response) {
   const data = await response.json().catch(() => ({}));
@@ -304,6 +304,51 @@ export async function joinSpace(spaceId, inviteCode, authToken) {
       "Authorization": `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteMessage(spaceId, messageId, authToken) {
+  if (!spaceId) {
+    throw new Error("Missing space id.");
+  }
+  if (!messageId) {
+    throw new Error("Missing message id.");
+  }
+
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request(`/messages/${spaceId}/${messageId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+}
+
+export async function likeMessage(spaceId, messageId, authToken) {
+  if (!spaceId) {
+    throw new Error("Missing space id.");
+  }
+  if (!messageId) {
+    throw new Error("Missing message id.");
+  }
+
+  const token = authToken || (await SecureStore.getItemAsync("jwt_token"));
+  if (!token) {
+    throw new Error("Missing auth token. Please sign in again.");
+  }
+
+  return request(`/messages/${spaceId}/${messageId}/appreciate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify({}),
   });
 }
 

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "space7",
+    "name": "Space7",
     "slug": "space7",
     "scheme": "space7",
     "version": "1.0.0",
@@ -21,7 +21,8 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "package": "com.fishsticks53.space7"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,7 +39,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
-    ]
+      ],
+      "expo-video"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "51d864cc-c70c-42c4-b63c-332d30aee529"
+      }
+    }
   }
 }

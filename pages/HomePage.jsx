@@ -159,7 +159,11 @@ export default function HomePage() {
                     </View>
                   </View>
 
-                  <View style={[styles.tagRow, styles.tagRowTrending]}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[styles.tagRow, styles.tagRowHorizontal, styles.tagRowTrending]}
+                  >
                     {tags.length === 0 ? (
                       <Text style={[styles.tag, styles.tagBlue]}>#general</Text>
                     ) : (
@@ -176,8 +180,7 @@ export default function HomePage() {
                         </Text>
                       ))
                     )}
-                    
-                  </View>
+                  </ScrollView>
                 </TouchableOpacity>
               );
             })}
@@ -211,7 +214,9 @@ export default function HomePage() {
                 }}
               >
                 <Text style={styles.recTitle}>{card?.title || "Untitled"}</Text>
-                <Text style={styles.recDesc}>{card?.description || "No description available."}</Text>
+                <Text style={styles.recDesc} numberOfLines={3} ellipsizeMode="tail">
+                  {card?.description || "No description available."}
+                </Text>
 
                 <View style={styles.byRow}>
                   <FontAwesome5 name="user-circle" size={24} color="#111" />
@@ -222,7 +227,11 @@ export default function HomePage() {
                   </View>
                 </View>
 
-                <View style={styles.tagRow}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={[styles.tagRow, styles.tagRowHorizontal]}
+                >
                   {tags.length === 0 ? (
                     <Text style={[styles.tag, styles.tagPurple]}>#general</Text>
                   ) : (
@@ -238,8 +247,7 @@ export default function HomePage() {
                       </Text>
                     ))
                   )}
-                  
-                </View>
+                </ScrollView>
               </TouchableOpacity>
             );
           })}
@@ -403,7 +411,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginTop: 12,
     gap: 10,
-    flexWrap: "wrap",
+  },
+  tagRowHorizontal: {
+    flexWrap: "nowrap",
+    paddingRight: 4,
   },
   tagRowTrending: {
     minHeight: 44,

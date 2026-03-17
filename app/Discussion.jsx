@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
   },
   cardTitleRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
     marginBottom: 8,
   },
@@ -214,6 +214,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: "Outfit_700Bold",
     color: "#111",
+    flex: 1,
+    flexShrink: 1,
   },
   cardDesc: {
     fontSize: 14,
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit_600SemiBold",
     marginRight: 8,
     marginBottom: 8,
-    flexShrink:"shrink"
+    flexShrink: 1,
   },
   tagBlue: {
     backgroundColor: "#41b4fb",
