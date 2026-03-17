@@ -129,6 +129,7 @@ export default function HomePage() {
                 <TouchableOpacity
                   key={card?.space_id || card?.id || `${card?.title}-${index}`}
                   activeOpacity={0.7}
+                  delayPressIn={180}
                   style={[styles.topicCard, { backgroundColor: trendingColors[index % trendingColors.length] }]}
                   onPress={() => {
                     const id = card?.space_id || card?.id;
@@ -161,8 +162,13 @@ export default function HomePage() {
 
                   <ScrollView
                     horizontal
+                    nestedScrollEnabled
+                    directionalLockEnabled
+                    scrollEnabled={tags.length > 1}
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={[styles.tagRow, styles.tagRowHorizontal, styles.tagRowTrending]}
+                    style={styles.tagScroll}
+                    onStartShouldSetResponder={() => true}
                   >
                     {tags.length === 0 ? (
                       <Text style={[styles.tag, styles.tagBlue]}>#general</Text>
@@ -206,6 +212,7 @@ export default function HomePage() {
               <TouchableOpacity
                 key={card?.space_id || card?.id || `${card?.title}-${index}`}
                 activeOpacity={0.7}
+                delayPressIn={180}
                 style={[styles.recCard, { backgroundColor: recommendedColors[index % recommendedColors.length] }]}
                 onPress={() => {
                   const id = card?.space_id || card?.id;
@@ -229,8 +236,13 @@ export default function HomePage() {
 
                 <ScrollView
                   horizontal
+                  nestedScrollEnabled
+                  directionalLockEnabled
+                  scrollEnabled={tags.length > 1}
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={[styles.tagRow, styles.tagRowHorizontal]}
+                  style={styles.tagScroll}
+                  contentContainerStyle={[styles.tagRow, styles.tagRowHorizontal, styles.tagRowRecommended]}
+                  onStartShouldSetResponder={() => true}
                 >
                   {tags.length === 0 ? (
                     <Text style={[styles.tag, styles.tagPurple]}>#general</Text>
@@ -358,13 +370,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   topicCard: {
-    width: 250,
-    height: 220,
-    borderRadius: 24,
+    width: 320,
+    minHeight: 180,
+    borderRadius: 0,
     borderColor: "#111",
     borderWidth: 4,
     padding: 12,
-    overflow: "hidden",
   },
   cardTitleRow: {
     flexDirection: "row",
@@ -414,13 +425,19 @@ const styles = StyleSheet.create({
   },
   tagRowHorizontal: {
     flexWrap: "nowrap",
-    paddingRight: 4,
+    paddingRight: 10,
+    flexGrow: 1,
   },
   tagRowTrending: {
-    minHeight: 44,
-    maxHeight: 44,
-    overflow: "hidden",
+    minHeight: 40,
+    alignItems: "center",
   },
+  tagRowRecommended: {
+    alignItems: "center",
+    minHeight: 40,
+    paddingBottom: 2,
+  },
+  tagScroll: { width: "100%", marginTop: 12, minHeight: 44 },
   tag: {
     borderRadius: 12,
     borderWidth: 2,
@@ -429,8 +446,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     fontSize: 16,
     color: "#111",
-    overflow: "hidden",
-    maxHeight: 40,
   },
   tagBlue: {
     backgroundColor: "#41b4fb",
@@ -443,7 +458,7 @@ const styles = StyleSheet.create({
   },
   recCard: {
     marginTop: 12,
-    borderRadius: 24,
+    borderRadius: 0,
     borderColor: "#111",
     borderWidth: 4,
     padding: 16,

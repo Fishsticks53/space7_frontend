@@ -83,17 +83,6 @@ export default function MyDiscussion() {
           showsVerticalScrollIndicator={false}
         >
           {list.map((space, index) => {
-            const iconName =
-              index % 5 === 0
-                ? "lightning-bolt"
-                : index % 5 === 1
-                ? "dna"
-                : index % 5 === 2
-                ? "earth"
-                : index % 5 === 3
-                ? "rocket-launch-outline"
-                : "map-marker-radius-outline";
-
             const tags = Array.isArray(space?.tags) ? space.tags : [];
             const count =
               space?.participant_count ??
@@ -112,12 +101,10 @@ export default function MyDiscussion() {
                 }}
                 style={[styles.card,{backgroundColor:cardColors[index%5]}]}
               >
-                <View style={styles.cardTitleRow}>
-                  <MaterialCommunityIcons name={iconName} size={24} color="#111" />
-                  <Text style={styles.cardTitle}>{space?.title || "Untitled Space"}</Text>
-                </View>
-
-                <Text style={styles.cardDesc}>{space?.description || "No description available."}</Text>
+                <Text style={styles.cardTitle} numberOfLines={1}>{space?.title || "Untitled Space"}</Text>
+                <Text style={styles.cardDesc} numberOfLines={3} ellipsizeMode="tail">
+                  {space?.description || "No description available."}
+                </Text>
 
                 <View style={styles.byRow}>
                   <MaterialCommunityIcons name="face-man-profile" size={22} color="#111" />
@@ -128,22 +115,29 @@ export default function MyDiscussion() {
                   </View>
                 </View>
 
-                <View style={styles.tagRow}>
+                <ScrollView
+                  horizontal
+                  nestedScrollEnabled
+                  directionalLockEnabled
+                  scrollEnabled={tags.length > 1}
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.tagScroll}
+                  contentContainerStyle={[styles.tagRow, styles.tagRowHorizontal]}
+                  onStartShouldSetResponder={() => true}
+                >
                   {tags.length === 0 ? (
                     <Text style={[styles.tag, styles.tagBlue]}>#general</Text>
                   ) : (
                     tags.map((tag, idx) => (
-                      <View key={`${space?.space_id || "space"}-wrap-${tag?.tag_id || idx}`}>
-                        <Text
-                          style={[styles.tag, idx % 2 === 0 ? styles.tagBlue : styles.tagGreen]}
-                        >
-                          #{String(tag?.tag_name || "").replace(/^#/, "")}
-                        </Text>
-                      </View>
+                      <Text
+                        key={`${space?.space_id || "space"}-wrap-${tag?.tag_id || idx}`}
+                        style={[styles.tag, idx % 2 === 0 ? styles.tagBlue : styles.tagGreen]}
+                      >
+                        #{String(tag?.tag_name || "").replace(/^#/, "")}
+                      </Text>
                     ))
                   )}
-                  
-                </View>
+                </ScrollView>
               </TouchableOpacity>
             );
           })}
@@ -199,26 +193,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    borderRadius: 24,
+    borderRadius: 0,
     borderColor: "#111",
     borderWidth: 4,
-    padding: 14,
-  },
-  cardTitleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    marginBottom: 8,
+    padding: 16,
+    minHeight: 180,
   },
   cardTitle: {
     fontSize: 22,
     fontFamily: "Outfit_700Bold",
     color: "#111",
-    flex: 1,
-    flexShrink: 1,
+    marginBottom: 8,
   },
   cardDesc: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#111",
     marginBottom: 10,
     fontFamily: "Outfit_400Regular",
@@ -239,7 +227,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderBottomWidth: 2,
     borderBottomColor: "#111",
-    paddingBottom: 2,
+    paddingBottom: 4,
     gap: 5,
   },
   countText: {
@@ -250,8 +238,15 @@ const styles = StyleSheet.create({
   tagRow: {
     flexDirection: "row",
     marginTop: 12,
-    flexWrap: "wrap",
+    gap: 8,
   },
+  tagRowHorizontal: {
+    flexWrap: "nowrap",
+    alignItems: "center",
+    minHeight: 40,
+    paddingRight: 10,
+  },
+  tagScroll: { width: "100%", minHeight: 44 },
   tag: {
     borderRadius: 12,
     borderWidth: 2,

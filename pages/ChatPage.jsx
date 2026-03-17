@@ -35,6 +35,20 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_BASE;
 const SOCKET_URL = API_BASE.replace(/\/api\/?$/, "");
 
 const getId = (message) => message?.message_id || message?.id;
+const normalizeMessage = (payload) => {
+  if (!payload || typeof payload !== "object") return payload;
+  if (payload?.message_id || payload?.id) return payload;
+  if (payload?.message && (payload.message?.message_id || payload.message?.id)) return payload.message;
+  if (payload?.data && (payload.data?.message_id || payload.data?.id)) return payload.data;
+  return payload;
+};
+const getMessageSignature = (message) =>
+  [
+    getId(message) || "",
+    message?.sender_id || message?.sender?.user_id || message?.sender?.id || "",
+    message?.content || message?.text || "",
+    message?.created_at || "",
+  ].join("|");
 
 const isMembershipError = (error) => {
   const status = error?.status;
@@ -150,10 +164,15 @@ export default function ChatPage() {
       });
 
       socket.on("receive_message", (incoming) => {
+        const normalizedIncoming = normalizeMessage(incoming);
         setMessages((prev) => {
-          const incomingId = getId(incoming);
+          const incomingId = getId(normalizedIncoming);
           if (incomingId && prev.some((m) => getId(m) === incomingId)) return prev;
-          return [...prev, incoming];
+          const incomingSignature = getMessageSignature(normalizedIncoming);
+          if (!incomingId && prev.some((m) => getMessageSignature(m) === incomingSignature)) {
+            return prev;
+          }
+          return [...prev, normalizedIncoming];
         });
       });
 
@@ -221,22 +240,24 @@ export default function ChatPage() {
         await joinSpace(spaceId);
       }
 
-      const created = await sendMessage(spaceId, text, undefined, pickedMedia);
-      setMessages((prev) => [...prev, created]);
-      if (socketRef.current) {
-        socketRef.current.emit("send_message", { spaceId, message: created });
-      }
+      const created = normalizeMessage(await sendMessage(spaceId, text, undefined, pickedMedia));
+      setMessages((prev) => {
+        const createdId = getId(created);
+        if (createdId && prev.some((m) => getId(m) === createdId)) return prev;
+        return [...prev, created];
+      });
       setDraft("");
       setPickedMedia(null);
     } catch (error) {
       if (isMembershipError(error)) {
         try {
           await joinSpace(spaceId);
-          const created = await sendMessage(spaceId, text, undefined, pickedMedia);
-          setMessages((prev) => [...prev, created]);
-          if (socketRef.current) {
-            socketRef.current.emit("send_message", { spaceId, message: created });
-          }
+          const created = normalizeMessage(await sendMessage(spaceId, text, undefined, pickedMedia));
+          setMessages((prev) => {
+            const createdId = getId(created);
+            if (createdId && prev.some((m) => getId(m) === createdId)) return prev;
+            return [...prev, created];
+          });
           setDraft("");
           setPickedMedia(null);
           return;
@@ -317,9 +338,11 @@ export default function ChatPage() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.push("/(tabs)")}>
           <Ionicons name="arrow-back" size={28} color="#111" />
         </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>
-          {spaceInfo?.title || "Chat"}
-        </Text>
+        <View style={styles.titleWrap}>
+          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+            {spaceInfo?.title || "Chat"}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.topic}>
@@ -334,7 +357,7 @@ export default function ChatPage() {
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
         {messages.map((message, index) => (
-          <View key={getId(message) || String(index)} style={styles.messageRow}>
+          <View key={`${getId(message) || "msg"}-${index}`} style={styles.messageRow}>
             <View style={styles.bubble}>
               <Text style={styles.senderName}>@{message?.sender?.username || "user"}</Text>
 
@@ -424,24 +447,26 @@ export default function ChatPage() {
 const styles = StyleSheet.create({
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
   loadingText: { fontSize: 18, color: "#111", fontWeight: "700" },
-  top: { backgroundColor: "#27a6fd", flexDirection: "row", alignItems: "center", paddingHorizontal: 15, paddingBottom: 20, gap: 10, paddingTop: 40 },
+  top: { backgroundColor: "#27a6fd", flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingBottom: 10, gap: 10, paddingTop: 34, borderBottomWidth: 3, borderColor: "#111", minHeight: 92 },
   backButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 8, marginRight: 10 },
-  title: { fontSize: 34, color: "#111", fontFamily: "Outfit_700Bold" },
-  topic: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", paddingVertical: 12 },
+  titleWrap: { flex: 1, justifyContent: "center", paddingRight: 6 },
+  titleLabel: { fontSize: 12, color: "#111", fontFamily: "Outfit_600SemiBold", opacity: 0.85, marginBottom: 2 },
+  title: { fontSize: 22, lineHeight: 26, color: "#111", fontFamily: "Outfit_700Bold", flexShrink: 1, paddingRight: 8 },
+  topic: { backgroundColor: "#feda00", borderWidth: 3, borderTopWidth: 0, borderColor: "#111", paddingVertical: 12 },
   topicText: { fontSize: 28, color: "#111", marginLeft: 14, fontFamily: "Outfit_700Bold" },
   chatArea: { flex: 1, backgroundColor: "white" },
   chatContent: { padding: 14, gap: 10 },
   messageRow: { width: "100%", marginBottom: 8, alignItems: "flex-start" },
   bubble: { maxWidth: "90%", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: "#dedede" },
   senderName: { fontSize: 13, color: "#111", fontFamily: "Outfit_600SemiBold", marginBottom: 2 },
-  messageText: { fontSize: 16, color: "#111", fontFamily: "Outfit_400Regular" },
+  messageText: { fontSize: 16, lineHeight: 22, color: "#111", fontFamily: "Outfit_400Regular", flexWrap: "wrap", flexShrink: 1 },
   messageActions: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 12 },
   actionButton: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 2 },
   actionText: { fontSize: 13, color: "#111", fontFamily: "Outfit_600SemiBold" },
   deleteText: { color: "#9c1028" },
   imageWrap: { width: 270, alignSelf: "flex-start" },
   mediaImage: { width: 270, height: 210, borderRadius: 12, marginTop: 6, borderWidth: 2, borderColor: "#111" },
-  captionText: { marginTop: 8, fontSize: 15, color: "#111", fontFamily: "Outfit_400Regular" },
+  captionText: { marginTop: 8, fontSize: 15, lineHeight: 20, color: "#111", fontFamily: "Outfit_400Regular", flexWrap: "wrap", flexShrink: 1 },
   videoWrap: { marginTop: 8, width: 270, borderWidth: 2, borderColor: "#111", borderRadius: 12, overflow: "hidden", backgroundColor: "#000" },
   videoPlayer: { width: "100%", height: 220 },
   audioWrap: { marginTop: 8, width: 270, borderWidth: 2, borderColor: "#111", borderRadius: 12, overflow: "hidden", backgroundColor: "#fff" },

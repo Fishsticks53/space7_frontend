@@ -53,12 +53,44 @@ export default function ProfilePage() {
     return sum + (Number(count) || 0);
   }, 0);
 
+  const currentUserId = user?.user_id || user?.id;
+  const isCreatedByMe = (space) => {
+    const creatorId = space?.creator_id || space?.creator?.user_id || space?.creator?.id;
+    return !!currentUserId && String(creatorId) === String(currentUserId);
+  };
+
+  const createdSpacesCount = spaces.filter(isCreatedByMe).length;
+  const participatedSpacesCount = spaces.filter((space) => !isCreatedByMe(space)).length;
+
+  const createdParticipants = spaces
+    .filter(isCreatedByMe)
+    .reduce((sum, space) => {
+      const count =
+        space?.participant_count ??
+        space?.member_count ??
+        space?.members_count ??
+        (Array.isArray(space?.members) ? space.members.length : 0);
+      return sum + (Number(count) || 0);
+    }, 0);
+
+  const participatedParticipants = spaces
+    .filter((space) => !isCreatedByMe(space))
+    .reduce((sum, space) => {
+      const count =
+        space?.participant_count ??
+        space?.member_count ??
+        space?.members_count ??
+        (Array.isArray(space?.members) ? space.members.length : 0);
+      return sum + (Number(count) || 0);
+    }, 0);
+
   const details = {
     username: user?.username || "User",
     description: "Startup Enthusiast Book Lover",
-    spaces: spaces.length,
-    activeUsersSpace: totalParticipants,
-    activeUserSpace2: totalParticipants,
+    createdSpaces: createdSpacesCount,
+    participatedSpaces: participatedSpacesCount,
+    activeUsersSpace: createdParticipants || totalParticipants,
+    activeUserSpace2: participatedParticipants,
   };
 
   return (
@@ -84,15 +116,17 @@ export default function ProfilePage() {
           <View style={styles.userMetaWrap}>
             <Text style={styles.userTag}>@{details.username}</Text>
             <View style={styles.description}>
-              <Text>{details.description}</Text>
+              <Text style={styles.descriptionText} numberOfLines={2}>
+                {details.description}
+              </Text>
             </View>
           </View>
 
           <View style={styles.statsWrap}>
             <View style={styles.spaceIcon}>
-              <Text style={styles.bigText}> {details.spaces}</Text>
-              <Text style={styles.mediumText}>Spaces</Text>
-              <Text style={styles.separator}>{"-".repeat(22)}</Text>
+              <Text style={styles.bigText}>{details.createdSpaces}</Text>
+              <Text style={styles.mediumText}>Created</Text>
+              <View style={styles.separatorLine} />
               <View style={styles.statRow}>
                 <View style={styles.statInner}>
                   <MaterialCommunityIcons name="face-man-profile" size={24} color="black" />
@@ -106,13 +140,13 @@ export default function ProfilePage() {
             </View>
 
             <View style={styles.spaceIcon2}>
-              <Text style={styles.bigText}> {details.spaces}</Text>
+              <Text style={styles.bigText}>{details.participatedSpaces}</Text>
               <Text style={styles.mediumText}>Participated</Text>
-              <Text style={styles.separator}>{"-".repeat(20)}</Text>
+              <View style={styles.separatorLine} />
               <View style={styles.statRow}>
                 <View style={styles.statInner}>
                   <MaterialCommunityIcons name="face-man-profile" size={24} color="black" />
-                  <Text>{details.username}</Text>
+                  <Text>{details.participatedSpaces === 0 ? "No spaces" : details.username}</Text>
                 </View>
                 <View style={styles.statInner}>
                   <Feather name="user" size={24} color="black" />
@@ -132,14 +166,8 @@ export default function ProfilePage() {
                 space?.members_count ??
                 (Array.isArray(space?.members) ? space.members.length : 0);
 
-              const daysAgo = space?.created_at
-                ? Math.max(
-                    0,
-                    Math.floor((Date.now() - new Date(space.created_at).getTime()) / (1000 * 60 * 60 * 24))
-                  )
-                : 0;
-
               const tags = Array.isArray(space?.tags) ? space.tags : [];
+              const creator = space?.creator?.username || details.username;
 
               return (
                 <TouchableOpacity
@@ -152,32 +180,33 @@ export default function ProfilePage() {
                   }}
                 >
                   <View style={[styles.spaceCard, { backgroundColor: colors[index % colors.length] }]}>
-                    <View style={styles.spaceCardTopRow}>
-                      <Text style={styles.spaceTitle}>{space?.title || "Untitled Space"}</Text>
-                      <View style={styles.spaceCountRow}>
-                        <Feather name="user" size={14} color="black" />
-                        <Text style={styles.spaceCountText}>{participantCount}</Text>
-                      </View>
-                    </View>
+                    <Text style={styles.spaceTitle} numberOfLines={1}>
+                      {space?.title || "Untitled Space"}
+                    </Text>
 
-                    <Text style={styles.spaceDescriptionText}>{space?.description || "No description available."}</Text>
+                    <Text style={styles.spaceDescriptionText} numberOfLines={3} ellipsizeMode="tail">
+                      {space?.description || "No description available."}
+                    </Text>
 
                     <View style={styles.spaceMetaRow}>
-                      <View style={styles.spaceMetaLeft}>
-                        <View style={styles.spaceOwnerRow}>
-                          <MaterialCommunityIcons name="face-man-profile" size={18} color="black" />
-                          <Text style={styles.spaceMetaText}>@{details.username}</Text>
-                        </View>
-                        <Text style={styles.spaceMetaText}>{daysAgo} days ago</Text>
-                      </View>
-
+                      <MaterialCommunityIcons name="face-man-profile" size={24} color="black" />
+                      <Text style={styles.spaceMetaText}>By @{creator}</Text>
                       <View style={styles.spaceCountRow}>
-                        <Feather name="user" size={14} color="black" />
+                        <Feather name="user" size={20} color="black" />
                         <Text style={styles.spaceCountText}>{participantCount}</Text>
                       </View>
                     </View>
 
-                    <View style={styles.spaceTagsRow}>
+                    <ScrollView
+                      horizontal
+                      nestedScrollEnabled
+                      directionalLockEnabled
+                      scrollEnabled={tags.length > 1}
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.spaceTagScroll}
+                      contentContainerStyle={[styles.spaceTagsRow, styles.spaceTagsRowHorizontal]}
+                      onStartShouldSetResponder={() => true}
+                    >
                       {tags.map((tag, tagIndex) => {
                         const cardColorIndex = index % colors.length;
                         const availableColors = colors.filter((_, i) => i !== cardColorIndex);
@@ -188,7 +217,7 @@ export default function ProfilePage() {
                           </View>
                         );
                       })}
-                    </View>
+                    </ScrollView>
                   </View>
                 </TouchableOpacity>
               );
@@ -208,7 +237,7 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingHorizontal: 18,
     backgroundColor: "#27a6fd",
-    paddingBottom: 70,
+    paddingBottom: 90,
   },
   icons: {
     flexDirection: "row",
@@ -229,7 +258,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     backgroundColor: "white",
     paddingTop: 6,
-    height: "100%",
+    paddingBottom: 18,
   },
   profileWrap: {
     justifyContent: "center",
@@ -255,50 +284,60 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   description: {
-    fontSize: 35,
     backgroundColor: "#5dd76d",
     borderColor: "black",
     borderWidth: 3,
     padding: 7,
     marginTop: 10,
     borderRadius: 15,
-    width: 370,
+    width: "92%",
     justifyContent: "center",
     alignItems: "center",
-    fontWeight: "bold",
+  },
+  descriptionText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111",
+    textAlign: "center",
   },
   statsWrap: {
     flexDirection: "row",
     justifyContent: "center",
     gap: 10,
     marginTop: 10,
+    paddingHorizontal: 10,
   },
   spaceIcon: {
     backgroundColor: "#27a6fd",
-    padding: 10,
+    padding: 12,
     borderRadius: 15,
     borderWidth: 3,
     borderColor: "black",
-    width: 180,
+    flex: 1,
+    maxWidth: 190,
   },
   spaceIcon2: {
     backgroundColor: "#feda00",
-    padding: 10,
+    padding: 12,
     borderRadius: 15,
     borderWidth: 3,
     borderColor: "black",
-    width: 180,
+    flex: 1,
+    maxWidth: 190,
   },
   bigText: {
-    fontSize: 25,
+    fontSize: 32,
     fontWeight: "bold",
   },
   mediumText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
   },
-  separator: {
-    fontSize: 25,
+  separatorLine: {
+    marginTop: 8,
+    marginBottom: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: "#111",
   },
   statRow: {
     flexDirection: "row",
@@ -329,66 +368,68 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   spaceCard: {
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: "black",
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderRadius: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    minHeight: 180,
     marginLeft: 8,
     marginRight: 8,
     marginBottom: 15,
   },
   spaceCardTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
+    display: "none",
   },
-  spaceTitle: {
-    fontSize: 23,
-    fontWeight: "bold",
-    flex: 1,
-  },
+  spaceTitle: { fontSize: 22, fontWeight: "900", color: "#111", marginBottom: 8 },
   spaceCountRow: {
+    marginLeft: "auto",
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: 5,
+    borderBottomWidth: 2,
+    borderBottomColor: "#111",
+    paddingBottom: 4,
   },
   spaceCountText: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#111",
   },
   spaceDescriptionText: {
-    fontSize: 20,
+    fontSize: 16,
     marginTop: 4,
+    marginBottom: 10,
+    color: "#111",
   },
   spaceMetaRow: {
-    marginTop: 6,
+    marginTop: 2,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: 8,
   },
   spaceMetaLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+    display: "none",
   },
   spaceOwnerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
+    display: "none",
   },
   spaceMetaText: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 14,
+    color: "#111",
   },
   spaceTagsRow: {
     marginTop: 8,
     flexDirection: "row",
     gap: 6,
-    flexWrap: "wrap",
   },
+  spaceTagsRowHorizontal: {
+    flexWrap: "nowrap",
+    alignItems: "center",
+    minHeight: 40,
+    paddingRight: 10,
+  },
+  spaceTagScroll: { width: "100%", minHeight: 44 },
   spaceTag: {
     borderWidth: 2,
     borderColor: "black",

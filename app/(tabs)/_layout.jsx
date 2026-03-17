@@ -1,6 +1,5 @@
 import { Tabs, useRouter } from "expo-router";
-import { Ionicons, Feather, Entypo } from "@expo/vector-icons";
-import Octicons from "@expo/vector-icons/Octicons";
+import { Ionicons } from "@expo/vector-icons";
 import { View, StyleSheet } from "react-native";
 import { useEffect } from "react";
 import { useAuth } from "../../context/authContext";
@@ -34,7 +33,7 @@ export default function TabsLayout() {
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
-              <Ionicons name={focused ? "home" : "home-outline"} size={22} color={color} />
+              <Ionicons name={focused ? "home" : "home-outline"} size={26} color={color} />
             </View>
           ),
         }}
@@ -49,9 +48,9 @@ export default function TabsLayout() {
         }}
         options={{
           title: "New Space",
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
-              <Entypo name="new-message" size={22} color={color} />
+              <Ionicons name={focused ? "add-circle" : "add-circle-outline"} size={26} color={color} />
             </View>
           ),
         }}
@@ -66,9 +65,9 @@ export default function TabsLayout() {
           }}
         options={{
           title: "Discussion",
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
-              <Octicons name="comment-discussion" size={22} color={color} />
+              <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={26} color={color} />
             </View>
           ),
         }}
@@ -77,9 +76,9 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
-              <Feather name="user" size={22} color={color} />
+              <Ionicons name={focused ? "person-circle" : "person-circle-outline"} size={26} color={color} />
             </View>
           ),
         }}

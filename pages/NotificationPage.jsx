@@ -46,7 +46,7 @@ export default function NotificationPage() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.listPad}>
+      <ScrollView contentContainerStyle={styles.listPad} showsVerticalScrollIndicator={false}>
         {items.map((item, index) => (
           <TouchableOpacity
             key={item?.notification_id || `${index}`}
@@ -67,6 +67,11 @@ export default function NotificationPage() {
             <Text style={styles.msg}>{item?.message || "Notification"}</Text>
           </TouchableOpacity>
         ))}
+        {items.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyText}>No notifications yet.</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </Screen>
   );
@@ -78,9 +83,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: "900", color: "#111" },
   readAllBtn: { marginLeft: "auto", backgroundColor: "#5dd76d", borderWidth: 2, borderColor: "#111", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   readAllText: { fontWeight: "900", color: "#111" },
-  listPad: { padding: 12, gap: 10 },
+  listPad: { padding: 12, gap: 10, paddingBottom: 24, flexGrow: 1 },
   card: { borderWidth: 3, borderColor: "#111", borderRadius: 14, padding: 12 },
   unreadCard: { backgroundColor: "#feda00" },
   readCard: { backgroundColor: "#e4e4e4" },
   msg: { color: "#111", fontWeight: "700" },
+  emptyWrap: { flex: 1, minHeight: 220, alignItems: "center", justifyContent: "center" },
+  emptyText: { fontSize: 16, color: "#333", fontWeight: "700" },
 });

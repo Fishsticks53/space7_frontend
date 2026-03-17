@@ -104,7 +104,7 @@ export default function RegisterPage() {
         <ScrollView
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.headerSection}>
             <Text style={styles.logo}>space7</Text>
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: "#feda00",
     paddingHorizontal: 20,
     paddingVertical: 60,
@@ -285,6 +285,9 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     backgroundColor: "#fff",
+    width: "100%",
+    maxWidth: 460,
+    alignSelf: "center",
     borderRadius: 24,
     borderWidth: 4,
     borderColor: "#111",
