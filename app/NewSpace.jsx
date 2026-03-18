@@ -93,9 +93,9 @@ export default function NewSpace() {
         <View style={styles.topic}>
           <Text style={styles.topicText}>New Topic</Text>
         </View>
-        <View style={styles.titleCard}><Text style={{fontFamily:'Outfit_700Bold',fontSize:26,paddingHorizontal:10}}>Title</Text></View>
-        <TextInput placeholder="  Enter topic title..." style={styles.titleInput} onChangeText={setTitle} value={title}></TextInput>
-        <View style={styles.descriptionCard}><Text style={{fontFamily:'Outfit_700Bold',fontSize:26,paddingHorizontal:10}}>Description</Text></View>
+        <View style={styles.titleCard}><Text style={styles.sectionLabelText}>Title</Text></View>
+        <TextInput placeholder="  Enter topic title..." style={styles.titleInput} onChangeText={setTitle} value={title} />
+        <View style={styles.descriptionCard}><Text style={styles.sectionLabelText}>Description</Text></View>
         <View style={styles.descriptionInput}>
           <TextInput
             style={styles.descriptionText}
@@ -111,8 +111,8 @@ export default function NewSpace() {
             {description.length} / {maxChars}
           </Text>
         </View>
-        <View style={{position:'relative'}}>
-          <View style={styles.hastagTab}><Text style={{alignSelf:'center', marginTop:2, fontFamily:'Outfit_700Bold',fontSize:20}}>#Hastags</Text></View>
+        <View style={styles.hashtagWrap}>
+          <View style={styles.hastagTab}><Text style={styles.hashtagTabText}>#Hastags</Text></View>
           <View style={styles.hastag}>
             <View style={styles.tagInputRow}>
               <TextInput
@@ -138,7 +138,7 @@ export default function NewSpace() {
           </View>
         </View>
         <TouchableOpacity activeOpacity={0.7} style={styles.createButton} onPress={handleCreate} disabled={isSubmitting}>
-          <Text style={{fontFamily:'Outfit_700Bold',fontSize:26}}>{isSubmitting ? "Creating..." : "Create"}</Text>
+          <Text style={styles.createButtonText}>{isSubmitting ? "Creating..." : "Create"}</Text>
         </TouchableOpacity>
       </ScrollView>
     </Screen>
@@ -151,7 +151,6 @@ const styles = StyleSheet.create({
   },
   top:{
     backgroundColor:"#27a6fd",
-    display:"flex",
     flexDirection:"row",
     justifyContent:"space-between",
     alignItems:"center",
@@ -178,6 +177,11 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontFamily: "Outfit_700Bold",
     marginLeft:14,
+  },
+  sectionLabelText:{
+    fontFamily:'Outfit_700Bold',
+    fontSize:26,
+    paddingHorizontal:10,
   },
   titleCard:{
     backgroundColor:"#27a6fd",
@@ -235,6 +239,9 @@ const styles = StyleSheet.create({
     color:'#6f739d',
     fontFamily:'Outfit_400Regular',
   },
+  hashtagWrap:{
+    position:'relative',
+  },
   hastag:{
     backgroundColor:"#feda00",
     borderWidth:2,
@@ -244,8 +251,6 @@ const styles = StyleSheet.create({
     marginHorizontal:20,
     borderRadius:20,
     borderTopStartRadius:0,
-    display:'flex',
-    flexDirection:'column',
     alignItems:'flex-start',
     position:'relative',
     justifyContent:'flex-start',
@@ -257,8 +262,7 @@ const styles = StyleSheet.create({
       paddingHorizontal:10,
       borderColor:'black',
       marginTop:20,
-      width:'auto',
-      height:30,
+      minHeight:30,
       position:'absolute',
       marginLeft:20,
       borderRadius:10,
@@ -266,6 +270,12 @@ const styles = StyleSheet.create({
       borderBottomWidth:0,
       borderBottomStartRadius:0,
       borderBottomEndRadius:0,
+    },
+    hashtagTabText:{
+      alignSelf:'center',
+      marginTop:2,
+      fontFamily:'Outfit_700Bold',
+      fontSize:20,
     },
     search:{
       backgroundColor:'white',
@@ -277,8 +287,7 @@ const styles = StyleSheet.create({
       fontFamily:'Outfit_400Regular',
     },
     tagInputRow:{
-      width:'100%',
-      display:'flex',
+      alignSelf:'stretch',
       flexDirection:'row',
       alignItems:'center',
       gap:10,
@@ -291,8 +300,7 @@ const styles = StyleSheet.create({
       borderRadius:10,
     },
     tagsContainer:{
-      width:'100%',
-      display:'flex',
+      alignSelf:'stretch',
       flexDirection:'row',
       flexWrap:'wrap',
       gap:8,
@@ -306,7 +314,6 @@ const styles = StyleSheet.create({
       borderRadius:20,
       paddingVertical:4,
       paddingHorizontal:10,
-      display:'flex',
       flexDirection:'row',
       alignItems:'center',
       gap:6,
@@ -316,10 +323,6 @@ const styles = StyleSheet.create({
       fontSize:14,
     },
     createButton:{
-      display:'flex',
-      flexDirection:'row',
-      justifyContent:'center',
-      alignItems:'center',
       backgroundColor:'#feda00',
       borderWidth:3,
       borderColor:'black',
@@ -328,5 +331,9 @@ const styles = StyleSheet.create({
       marginTop:20,
       padding:10,
       paddingHorizontal:20,
-    }
+    },
+    createButtonText:{
+      fontFamily:'Outfit_700Bold',
+      fontSize:26,
+    },
 })

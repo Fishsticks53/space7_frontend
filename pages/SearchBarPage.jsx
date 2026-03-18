@@ -109,7 +109,6 @@ const styles = StyleSheet.create({
   },
   backBtn: { backgroundColor: "#feda00", borderWidth: 2, borderColor: "#111", borderRadius: 10, padding: 8 },
   titleWrap: { flex: 1 },
-  titleLabel: { fontSize: 12, fontWeight: "700", color: "#111", opacity: 0.8 },
   title: { fontSize: 26, fontWeight: "900", color: "#111" },
   row: { flexDirection: "row", gap: 8, padding: 12, backgroundColor: "#efefef", borderBottomWidth: 2, borderBottomColor: "#111" },
   input: { flex: 1, borderWidth: 2, borderColor: "#111", borderRadius: 10, backgroundColor: "#fff", paddingHorizontal: 10, paddingVertical: 8 },

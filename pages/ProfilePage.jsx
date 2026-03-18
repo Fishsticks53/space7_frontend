@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   },
   
   bottom: {
-    width: "100%",
+    alignSelf: "stretch",
     marginTop: -26,
     borderRadius: 21,
     backgroundColor: "white",
@@ -297,7 +297,8 @@ const styles = StyleSheet.create({
     padding: 7,
     marginTop: 10,
     borderRadius: 15,
-    width: "92%",
+    alignSelf: "stretch",
+    marginHorizontal: 16,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -450,7 +451,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingRight: 10,
   },
-  spaceTagScroll: { width: "100%", minHeight: 44 },
+  spaceTagScroll: { minHeight: 44, alignSelf: "stretch" },
   spaceTag: {
     borderWidth: 2,
     borderColor: "black",

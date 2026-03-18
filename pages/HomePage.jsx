@@ -71,6 +71,7 @@ export default function HomePage() {
     };
 
     loadHomeData();
+
   }, []);
 
   return (
@@ -370,7 +371,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   topicCard: {
-    width: 320,
+    flex: 1,
+    minWidth: 280,
+    maxWidth: 340,
     minHeight: 180,
     borderRadius: 0,
     borderColor: "#111",
@@ -437,7 +440,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingBottom: 2,
   },
-  tagScroll: { width: "100%", marginTop: 12, minHeight: 44 },
+  tagScroll: { marginTop: 12, minHeight: 44, alignSelf: "stretch" },
   tag: {
     borderRadius: 12,
     borderWidth: 2,

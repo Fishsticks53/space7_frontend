@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   },
   otpRow: {
     flexDirection: "row",
-    width: "100%",
+    alignSelf: "stretch",
     justifyContent: "space-between",
     marginTop: 20,
     marginBottom: 20,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   verifyButton: {
-    width: "100%",
+    alignSelf: "stretch",
     backgroundColor: "#27a6fd",
     borderRadius: 16,
     borderWidth: 4,

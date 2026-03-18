@@ -74,6 +74,44 @@ const shouldJoinBeforeSend = (spaceInfo) => {
   return false;
 };
 
+const getSpaceDescription = (spaceInfo) => {
+  if (!spaceInfo || typeof spaceInfo !== "object") return "";
+  const raw =
+    spaceInfo?.description ??
+    spaceInfo?.space_description ??
+    spaceInfo?.desc ??
+    spaceInfo?.about ??
+    spaceInfo?.space?.description ??
+    spaceInfo?.space?.space_description ??
+    "";
+  return String(raw).trim();
+};
+
+const splitTitleForHeader = (rawTitle, maxChars = 28) => {
+  const title = String(rawTitle || "Chat").trim();
+  if (!title || title.length <= maxChars) {
+    return { firstLine: title || "Chat", overflow: "" };
+  }
+
+  const words = title.split(/\s+/);
+  let firstLine = "";
+  let index = 0;
+
+  while (index < words.length) {
+    const candidate = firstLine ? `${firstLine} ${words[index]}` : words[index];
+    if (candidate.length > maxChars) break;
+    firstLine = candidate;
+    index += 1;
+  }
+
+  if (!firstLine) {
+    firstLine = title.slice(0, maxChars);
+    return { firstLine, overflow: title.slice(maxChars).trim() };
+  }
+
+  return { firstLine, overflow: words.slice(index).join(" ").trim() };
+};
+
 function InlinePlayer({ uri, isAudio = false }) {
   const player = useVideoPlayer(uri, (instance) => {
     instance.loop = false;
@@ -107,6 +145,10 @@ export default function ChatPage() {
     Outfit_600SemiBold,
     Outfit_700Bold,
   });
+  const resolvedDescription = getSpaceDescription(spaceInfo);
+  const { firstLine: headerTitleFirstLine, overflow: headerTitleOverflow } = splitTitleForHeader(
+    spaceInfo?.title || "Chat"
+  );
 
   const normalizeMessages = (messageData) => {
     const list = Array.isArray(messageData) ? messageData : messageData?.messages || [];
@@ -354,13 +396,28 @@ export default function ChatPage() {
   return (
     <Screen>
       <View style={styles.top}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push("/(tabs)")}>
-          <Ionicons name="arrow-back" size={28} color="#111" />
-        </TouchableOpacity>
-        <View style={styles.titleWrap}>
-          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
-            {spaceInfo?.title || "Chat"}
-          </Text>
+        <View style={styles.titleRow}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push("/(tabs)")}>
+            <Ionicons name="arrow-back" size={28} color="#111" />
+          </TouchableOpacity>
+          <View style={styles.titleWrap}>
+            <Text style={styles.title}>{headerTitleFirstLine}</Text>
+          </View>
+        </View>
+        {headerTitleOverflow ? (
+          <Text style={styles.titleOverflow}>{headerTitleOverflow}</Text>
+        ) : null}
+        <View style={styles.descriptionWrap}>
+          <ScrollView
+            style={styles.descriptionScroll}
+            contentContainerStyle={styles.descriptionScrollContent}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+          >
+            <Text style={styles.titleDescription}>
+              {resolvedDescription || "No description available."}
+            </Text>
+          </ScrollView>
         </View>
       </View>
 
@@ -466,16 +523,21 @@ export default function ChatPage() {
 const styles = StyleSheet.create({
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
   loadingText: { fontSize: 18, color: "#111", fontWeight: "700" },
-  top: { backgroundColor: "#27a6fd", flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingBottom: 10, gap: 10, paddingTop: 34, borderBottomWidth: 3, borderColor: "#111", minHeight: 92 },
+  top: { backgroundColor: "#27a6fd", paddingHorizontal: 14, paddingBottom: 12, paddingTop: 34, borderBottomWidth: 3, borderColor: "#111", height: 190 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   backButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 8, marginRight: 10 },
   titleWrap: { flex: 1, justifyContent: "center", paddingRight: 6 },
-  titleLabel: { fontSize: 12, color: "#111", fontFamily: "Outfit_600SemiBold", opacity: 0.85, marginBottom: 2 },
   title: { fontSize: 22, lineHeight: 26, color: "#111", fontFamily: "Outfit_700Bold", flexShrink: 1, paddingRight: 8 },
+  titleOverflow: { marginTop: 6, fontSize: 22, lineHeight: 26, color: "#111", fontFamily: "Outfit_700Bold" },
+  descriptionWrap: { marginTop: 8, flex: 1, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.2)", paddingTop: 6 },
+  descriptionScroll: { flex: 1 },
+  descriptionScrollContent: { paddingBottom: 2 },
+  titleDescription: { fontSize: 13, lineHeight: 18, color: "#1f1f1f", fontFamily: "Outfit_400Regular", opacity: 0.92 },
   topic: { backgroundColor: "#feda00", borderWidth: 3, borderTopWidth: 0, borderColor: "#111", paddingVertical: 12 },
   topicText: { fontSize: 28, color: "#111", marginLeft: 14, fontFamily: "Outfit_700Bold" },
   chatArea: { flex: 1, backgroundColor: "white" },
   chatContent: { padding: 14, gap: 10 },
-  messageRow: { width: "100%", marginBottom: 8, alignItems: "flex-start" },
+  messageRow: { alignSelf: "stretch", marginBottom: 8, alignItems: "flex-start" },
   bubble: { maxWidth: "90%", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: "#dedede" },
   senderName: { fontSize: 16, color: "#111", fontFamily: "Outfit_700Bold", marginBottom: 4 },
   messageText: { fontSize: 20, lineHeight: 29, color: "#111", fontFamily: "Outfit_600SemiBold", flexWrap: "wrap", flexShrink: 1 },
@@ -495,7 +557,7 @@ const styles = StyleSheet.create({
   previewImage: { width: 120, height: 80, borderRadius: 8, borderWidth: 2, borderColor: "#111" },
   previewText: { fontSize: 13, color: "#111", fontFamily: "Outfit_400Regular" },
   previewRemove: { fontSize: 13, color: "#9c1028", fontFamily: "Outfit_700Bold" },
-  inputWrap: { backgroundColor: "#fc56aa", borderTopWidth: 3, borderColor: "#111", flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
+  inputWrap: { backgroundColor: "#fc56aa", borderTopWidth: 3, borderColor: "#111", flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, gap: 10, paddingBottom:30 },
   attachButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 10, justifyContent: "center", alignItems: "center" },
   input: { flex: 1, backgroundColor: "#fff", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 19, fontFamily: "Outfit_600SemiBold", color: "#111" },
   sendButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: "center", alignItems: "center" },

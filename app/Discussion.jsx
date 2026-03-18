@@ -49,6 +49,7 @@ export default function MyDiscussion() {
     };
 
     getMySpace();
+
   }, [mySpaces, visibility]);
 
   if (!fontsLoaded) {
@@ -143,7 +144,9 @@ export default function MyDiscussion() {
           })}
         </ScrollView>
       ) : (
-        <Image source={require('../assets/Discussion.png')} style={styles.image} resizeMode="contain" />
+        <View style={styles.emptyStateWrap}>
+          <Image source={require('../assets/Discussion.png')} style={styles.image} resizeMode="contain" />
+        </View>
       )}
     </Screen>
   );
@@ -180,9 +183,14 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit_700Bold",
     marginLeft: 14,
   },
+  emptyStateWrap: {
+    flex: 1,
+    alignItems: "stretch",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
   image: {
-    width: "100%",
-    height: "70%",
+    flex: 1,
   },
   content: {
     flex: 1,
@@ -246,7 +254,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingRight: 10,
   },
-  tagScroll: { width: "100%", minHeight: 44 },
+  tagScroll: { minHeight: 44, alignSelf: "stretch" },
   tag: {
     borderRadius: 12,
     borderWidth: 2,

@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
-    width: "100%",
+    alignSelf: "stretch",
     maxWidth: 440,
     backgroundColor: "#fff",
     borderWidth: 4,
