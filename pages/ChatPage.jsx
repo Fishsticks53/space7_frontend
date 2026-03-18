@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -121,6 +121,12 @@ export default function ChatPage() {
     });
   };
 
+  const refreshMessages = useCallback(async () => {
+    if (!spaceId) return;
+    const messageData = await getMessages(spaceId);
+    setMessages(normalizeMessages(messageData));
+  }, [spaceId]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -145,6 +151,18 @@ export default function ChatPage() {
       mounted = false;
     };
   }, [spaceId]);
+
+  useEffect(() => {
+    if (!spaceId) return;
+
+    const intervalId = setInterval(() => {
+      refreshMessages().catch(() => {
+        // Keep chat usable if background refresh fails.
+      });
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [spaceId, refreshMessages]);
 
   useEffect(() => {
     let mounted = true;
@@ -288,6 +306,7 @@ export default function ChatPage() {
     try {
       await deleteMessage(spaceId, messageId);
       setMessages((prev) => prev.filter((msg) => getId(msg) !== messageId));
+      await refreshMessages();
       if (socketRef.current) {
         socketRef.current.emit("delete_message", { spaceId, messageId });
       }
@@ -458,15 +477,15 @@ const styles = StyleSheet.create({
   chatContent: { padding: 14, gap: 10 },
   messageRow: { width: "100%", marginBottom: 8, alignItems: "flex-start" },
   bubble: { maxWidth: "90%", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: "#dedede" },
-  senderName: { fontSize: 13, color: "#111", fontFamily: "Outfit_600SemiBold", marginBottom: 2 },
-  messageText: { fontSize: 16, lineHeight: 22, color: "#111", fontFamily: "Outfit_400Regular", flexWrap: "wrap", flexShrink: 1 },
+  senderName: { fontSize: 16, color: "#111", fontFamily: "Outfit_700Bold", marginBottom: 4 },
+  messageText: { fontSize: 20, lineHeight: 29, color: "#111", fontFamily: "Outfit_600SemiBold", flexWrap: "wrap", flexShrink: 1 },
   messageActions: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 12 },
   actionButton: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 2 },
   actionText: { fontSize: 13, color: "#111", fontFamily: "Outfit_600SemiBold" },
   deleteText: { color: "#9c1028" },
   imageWrap: { width: 270, alignSelf: "flex-start" },
   mediaImage: { width: 270, height: 210, borderRadius: 12, marginTop: 6, borderWidth: 2, borderColor: "#111" },
-  captionText: { marginTop: 8, fontSize: 15, lineHeight: 20, color: "#111", fontFamily: "Outfit_400Regular", flexWrap: "wrap", flexShrink: 1 },
+  captionText: { marginTop: 8, fontSize: 19, lineHeight: 27, color: "#111", fontFamily: "Outfit_600SemiBold", flexWrap: "wrap", flexShrink: 1 },
   videoWrap: { marginTop: 8, width: 270, borderWidth: 2, borderColor: "#111", borderRadius: 12, overflow: "hidden", backgroundColor: "#000" },
   videoPlayer: { width: "100%", height: 220 },
   audioWrap: { marginTop: 8, width: 270, borderWidth: 2, borderColor: "#111", borderRadius: 12, overflow: "hidden", backgroundColor: "#fff" },
@@ -478,7 +497,7 @@ const styles = StyleSheet.create({
   previewRemove: { fontSize: 13, color: "#9c1028", fontFamily: "Outfit_700Bold" },
   inputWrap: { backgroundColor: "#fc56aa", borderTopWidth: 3, borderColor: "#111", flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
   attachButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 10, justifyContent: "center", alignItems: "center" },
-  input: { flex: 1, backgroundColor: "#fff", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, fontFamily: "Outfit_400Regular", color: "#111" },
+  input: { flex: 1, backgroundColor: "#fff", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 19, fontFamily: "Outfit_600SemiBold", color: "#111" },
   sendButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: "center", alignItems: "center" },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "center", alignItems: "center", padding: 16 },
   modalContent: { width: "100%", maxWidth: 420, backgroundColor: "#111", borderRadius: 12, borderWidth: 2, borderColor: "#fff", padding: 10, alignItems: "center", gap: 10 },
