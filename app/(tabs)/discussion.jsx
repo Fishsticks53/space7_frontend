@@ -1,3 +1,3 @@
-export default function DiscussionPlaceHolder(){
-    return null;
-};
+export default function DiscussionPlaceHolder() {
+	return null;
+}

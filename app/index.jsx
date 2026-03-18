@@ -1,35 +1,35 @@
+import { router } from "expo-router";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { router } from "expo-router";
-import { useAuth } from "../context/authContext";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useAuth } from "../context/authContext";
 
 export default function Index() {
-  const { loading, isAuthenticated } = useAuth();
+	const { loading, isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    if (!loading) {
-      if (isAuthenticated) {
-        router.replace("/(tabs)");
-      } else {
-        router.replace("/Login");
-      }
-    }
-  }, [loading, isAuthenticated]);
+	useEffect(() => {
+		if (!loading) {
+			if (isAuthenticated) {
+				router.replace("/(tabs)");
+			} else {
+				router.replace("/Login");
+			}
+		}
+	}, [loading, isAuthenticated]);
 
-  return (
-    <SafeAreaProvider>
-      <View style={styles.container}>
-        <ActivityIndicator size="large" />
-      </View>
-    </SafeAreaProvider>
-  );
+	return (
+		<SafeAreaProvider>
+			<View style={styles.container}>
+				<ActivityIndicator size="large" />
+			</View>
+		</SafeAreaProvider>
+	);
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+	container: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+	},
 });

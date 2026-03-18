@@ -1,8 +1,21 @@
+import Feather from "@expo/vector-icons/Feather";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import {
+  Outfit_400Regular,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  useFonts,
+} from "@expo-google-fonts/outfit";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
-  Modal,
-  Platform,
+	Alert,
+	Dimensions,
+	Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,35 +24,69 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
-import * as ImagePicker from "expo-image-picker";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import Feather from "@expo/vector-icons/Feather";
 import { io } from "socket.io-client";
-import { Image } from "expo-image";
-import { VideoView, useVideoPlayer } from "expo-video";
 import Screen from "../components/Screen";
-import { deleteMessage, getMessages, joinSpace, likeMessage, sendMessage, spaceDetails } from "../services/api";
 import { useAuth } from "../context/authContext";
 import {
-  useFonts,
-  Outfit_400Regular,
-  Outfit_600SemiBold,
-  Outfit_700Bold,
-} from "@expo-google-fonts/outfit";
+  deleteMessage,
+  getMessages,
+  joinSpace,
+  likeMessage,
+  sendMessage,
+  spaceDetails,
+} from "../services/api";
 
-const DEFAULT_API_BASE =
-  Platform.OS === "android" ? "http://10.0.2.2:5000/api" : "http://localhost:5000/api";
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_BASE;
+const API_BASE = String(process.env.EXPO_PUBLIC_API_URL || "").trim().replace(
+  /\/+$/,
+  "",
+);
 const SOCKET_URL = API_BASE.replace(/\/api\/?$/, "");
+const SOCKET_POLL_INTERVAL_MS = 15000;
+const MESSAGE_REFRESH_DEBOUNCE_MS = 4000;
+const CHAT_MEDIA_WIDTH = Math.min(Dimensions.get("window").width - 96, 380);
+const CHAT_MEDIA_HEIGHT = Math.round(CHAT_MEDIA_WIDTH * 0.72);
+
+const normalizeMediaUri = (rawUri) => {
+	const value = String(rawUri || "").trim();
+	if (!value) return "";
+	if (/^https?:\/\//i.test(value)) {
+		return encodeURI(value);
+	}
+	return value;
+};
+
+const getVideoContentType = (uri) => {
+	const lower = String(uri || "").toLowerCase();
+	if (lower.includes(".m3u8")) return "hls";
+	return "progressive";
+};
 
 const getId = (message) => message?.message_id || message?.id;
+const getSenderId = (message) =>
+  message?.sender?.id || message?.sender?.user_id || message?.sender_id;
+const getPayloadId = (payload) => payload?.message_id || payload?.id;
+const getMediaKind = (message) => {
+  const mediaUrl = String(message?.media_url || "").toLowerCase();
+  // Prefer URL extension first so incorrectly tagged backend mime types
+  // do not force video files into the audio renderer.
+  if (/\.(mp4|mov|m4v|webm)(\?|$)/.test(mediaUrl)) return "video";
+  if (/\.(jpg|jpeg|png|gif|webp|bmp|heic)(\?|$)/.test(mediaUrl)) return "image";
+  if (/\.(mp3|wav|m4a|aac|ogg)(\?|$)/.test(mediaUrl)) return "audio";
+
+  const mediaTypeRaw = String(message?.media_type || "").toLowerCase();
+  if (mediaTypeRaw.includes("video")) return "video";
+  if (mediaTypeRaw.includes("audio")) return "audio";
+  if (mediaTypeRaw.includes("image")) return "image";
+
+  return "";
+};
 const normalizeMessage = (payload) => {
   if (!payload || typeof payload !== "object") return payload;
   if (payload?.message_id || payload?.id) return payload;
-  if (payload?.message && (payload.message?.message_id || payload.message?.id)) return payload.message;
-  if (payload?.data && (payload.data?.message_id || payload.data?.id)) return payload.data;
+  if (payload?.message && (payload.message?.message_id || payload.message?.id))
+    return payload.message;
+  if (payload?.data && (payload.data?.message_id || payload.data?.id))
+    return payload.data;
   return payload;
 };
 const getMessageSignature = (message) =>
@@ -74,17 +121,19 @@ const shouldJoinBeforeSend = (spaceInfo) => {
   return false;
 };
 
-const getSpaceDescription = (spaceInfo) => {
-  if (!spaceInfo || typeof spaceInfo !== "object") return "";
-  const raw =
-    spaceInfo?.description ??
-    spaceInfo?.space_description ??
-    spaceInfo?.desc ??
-    spaceInfo?.about ??
-    spaceInfo?.space?.description ??
-    spaceInfo?.space?.space_description ??
-    "";
-  return String(raw).trim();
+const normalizeMessages = (messageData) => {
+  const list = Array.isArray(messageData)
+    ? messageData
+    : messageData?.messages || [];
+  const chronological = [...list].reverse();
+  const seen = new Set();
+  return chronological.filter((message) => {
+    const id = getId(message);
+    if (!id) return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 };
 
 const splitTitleForHeader = (rawTitle, maxChars = 28) => {
@@ -112,17 +161,49 @@ const splitTitleForHeader = (rawTitle, maxChars = 28) => {
   return { firstLine, overflow: words.slice(index).join(" ").trim() };
 };
 
-function InlinePlayer({ uri, isAudio = false }) {
-  const player = useVideoPlayer(uri, (instance) => {
+function InlinePlayer({
+  uri,
+  isAudio = false,
+  onGestureStart,
+  onGestureEnd,
+}) {
+  const safeUri = normalizeMediaUri(uri);
+  const player = useVideoPlayer(
+    safeUri
+      ? {
+          uri: safeUri,
+          contentType: isAudio ? "progressive" : getVideoContentType(safeUri),
+        }
+      : null,
+    (instance) => {
     instance.loop = false;
-  });
+      instance.timeUpdateEventInterval = 0.25;
+    },
+  );
+
+  if (!safeUri) return null;
 
   return (
-    <View style={isAudio ? styles.audioWrap : styles.videoWrap}>
+    <View
+      style={isAudio ? styles.audioWrap : styles.videoWrap}
+      onTouchStart={onGestureStart}
+      onTouchEnd={onGestureEnd}
+      onTouchCancel={onGestureEnd}
+    >
       <VideoView
         player={player}
         style={isAudio ? styles.audioPlayer : styles.videoPlayer}
         nativeControls
+        contentFit="contain"
+        surfaceType="textureView"
+        buttonOptions={{
+          showBottomBar: true,
+          showPlayPause: true,
+          showSeekBackward: true,
+          showSeekForward: true,
+          showSettings: true,
+        }}
+        fullscreenOptions={{ enable: true }}
       />
     </View>
   );
@@ -136,38 +217,60 @@ export default function ChatPage() {
   const [draft, setDraft] = useState("");
   const [spaceInfo, setSpaceInfo] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [mediaGestureActive, setMediaGestureActive] = useState(false);
   const [pickedMedia, setPickedMedia] = useState(null);
   const [expandedImageUri, setExpandedImageUri] = useState(null);
   const scrollRef = useRef(null);
   const socketRef = useRef(null);
+  const socketConnectedRef = useRef(false);
+  const isRefreshingRef = useRef(false);
+  const lastRefreshAtRef = useRef(0);
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
     Outfit_600SemiBold,
     Outfit_700Bold,
   });
-  const resolvedDescription = getSpaceDescription(spaceInfo);
-  const { firstLine: headerTitleFirstLine, overflow: headerTitleOverflow } = splitTitleForHeader(
-    spaceInfo?.title || "Chat"
-  );
+  const { firstLine: headerTitleFirstLine, overflow: headerTitleOverflow } =
+    splitTitleForHeader(spaceInfo?.title || "Chat");
 
-  const normalizeMessages = (messageData) => {
-    const list = Array.isArray(messageData) ? messageData : messageData?.messages || [];
-    const chronological = [...list].reverse();
-    const seen = new Set();
-    return chronological.filter((message) => {
-      const id = getId(message);
-      if (!id) return true;
-      if (seen.has(id)) return false;
-      seen.add(id);
-      return true;
+  const appendMessageIfMissing = useCallback((incomingMessage) => {
+    const normalizedIncoming = normalizeMessage(incomingMessage);
+    setMessages((prev) => {
+      const incomingId = getId(normalizedIncoming);
+      if (incomingId && prev.some((m) => getId(m) === incomingId)) return prev;
+      const incomingSignature = getMessageSignature(normalizedIncoming);
+      if (
+        !incomingId &&
+        prev.some((m) => getMessageSignature(m) === incomingSignature)
+      ) {
+        return prev;
+      }
+      return [...prev, normalizedIncoming];
     });
-  };
+  }, []);
 
-  const refreshMessages = useCallback(async () => {
-    if (!spaceId) return;
-    const messageData = await getMessages(spaceId);
-    setMessages(normalizeMessages(messageData));
-  }, [spaceId]);
+  const refreshMessages = useCallback(
+    async ({ force = false } = {}) => {
+      if (!spaceId) return;
+      const now = Date.now();
+      if (
+        !force &&
+        (isRefreshingRef.current ||
+          now - lastRefreshAtRef.current < MESSAGE_REFRESH_DEBOUNCE_MS)
+      ) {
+        return;
+      }
+      isRefreshingRef.current = true;
+      try {
+        const messageData = await getMessages(spaceId);
+        setMessages(normalizeMessages(messageData));
+        lastRefreshAtRef.current = Date.now();
+      } finally {
+        isRefreshingRef.current = false;
+      }
+    },
+    [spaceId],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -198,10 +301,11 @@ export default function ChatPage() {
     if (!spaceId) return;
 
     const intervalId = setInterval(() => {
+      if (socketConnectedRef.current) return;
       refreshMessages().catch(() => {
         // Keep chat usable if background refresh fails.
       });
-    }, 5000);
+    }, SOCKET_POLL_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
   }, [spaceId, refreshMessages]);
@@ -210,61 +314,58 @@ export default function ChatPage() {
     let mounted = true;
     const setupSocket = async () => {
       if (!spaceId) return;
+      if (!SOCKET_URL) return;
       const token = await SecureStore.getItemAsync("jwt_token");
       if (!token || !mounted) return;
 
       const socket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
         auth: { token },
+        autoConnect: true,
+        reconnection: true,
+        timeout: 3500,
       });
       socketRef.current = socket;
 
       socket.on("connect", () => {
+        socketConnectedRef.current = true;
         socket.emit("join_space", spaceId);
       });
 
-      socket.on("receive_message", (incoming) => {
-        const normalizedIncoming = normalizeMessage(incoming);
-        setMessages((prev) => {
-          const incomingId = getId(normalizedIncoming);
-          if (incomingId && prev.some((m) => getId(m) === incomingId)) return prev;
-          const incomingSignature = getMessageSignature(normalizedIncoming);
-          if (!incomingId && prev.some((m) => getMessageSignature(m) === incomingSignature)) {
-            return prev;
-          }
-          return [...prev, normalizedIncoming];
-        });
+      socket.on("disconnect", () => {
+        socketConnectedRef.current = false;
       });
 
+      socket.on("receive_message", appendMessageIfMissing);
+
       socket.on("message_deleted", (payload) => {
-        const deletedId = payload?.message_id || payload?.id;
+        const deletedId = getPayloadId(payload);
         if (!deletedId) return;
         setMessages((prev) => prev.filter((msg) => getId(msg) !== deletedId));
       });
 
       socket.on("message_liked", (payload) => {
-        const likedId = payload?.message_id || payload?.id;
+        const likedId = getPayloadId(payload);
         if (!likedId) return;
         setMessages((prev) =>
-          prev.map((msg) => (getId(msg) === likedId ? { ...msg, ...payload } : msg))
+          prev.map((msg) =>
+            getId(msg) === likedId ? { ...msg, ...payload } : msg,
+          ),
         );
-      });
-
-      socket.on("connect_error", () => {
-        // Keep UI usable while backend websocket is unavailable.
       });
     };
 
     setupSocket();
     return () => {
       mounted = false;
+      socketConnectedRef.current = false;
       if (socketRef.current) {
         socketRef.current.emit("leave_space", spaceId);
         socketRef.current.disconnect();
         socketRef.current = null;
       }
     };
-  }, [spaceId]);
+  }, [appendMessageIfMissing, spaceId]);
 
   const onPickMedia = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -272,9 +373,8 @@ export default function ChatPage() {
       Alert.alert("Permission required", "Allow media library access.");
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: [ImagePicker.MediaType.images, ImagePicker.MediaType.videos],
+      mediaTypes: ["images", "videos"],
       allowsMultipleSelection: false,
       quality: 0.9,
     });
@@ -286,43 +386,43 @@ export default function ChatPage() {
     setPickedMedia({
       uri: asset.uri,
       fileName: asset.fileName || `media-${Date.now()}`,
-      mimeType: asset.mimeType || (mediaType === "video" ? "video/mp4" : "image/jpeg"),
+      mimeType:
+        asset.mimeType || (mediaType === "video" ? "video/mp4" : "image/jpeg"),
       mediaType,
     });
   };
 
-  const onSend = async () => {
-    const text = draft.trim();
-    if (!text && !pickedMedia) return;
-
-    try {
-      if (shouldJoinBeforeSend(spaceInfo)) {
+  const sendCurrentMessage = useCallback(
+    async ({ forceJoin = false } = {}) => {
+      const text = draft.trim();
+      if (!text && !pickedMedia) return null;
+      if (forceJoin || shouldJoinBeforeSend(spaceInfo)) {
         await joinSpace(spaceId);
       }
-
-      const created = normalizeMessage(await sendMessage(spaceId, text, undefined, pickedMedia));
-      setMessages((prev) => {
-        const createdId = getId(created);
-        if (createdId && prev.some((m) => getId(m) === createdId)) return prev;
-        return [...prev, created];
-      });
+      const created = await sendMessage(spaceId, text, undefined, pickedMedia);
+      appendMessageIfMissing(created);
       setDraft("");
       setPickedMedia(null);
+      return created;
+    },
+    [appendMessageIfMissing, draft, pickedMedia, spaceId, spaceInfo],
+  );
+
+  const onSend = async () => {
+    if (!draft.trim() && !pickedMedia) return;
+
+    try {
+      await sendCurrentMessage();
     } catch (error) {
       if (isMembershipError(error)) {
         try {
-          await joinSpace(spaceId);
-          const created = normalizeMessage(await sendMessage(spaceId, text, undefined, pickedMedia));
-          setMessages((prev) => {
-            const createdId = getId(created);
-            if (createdId && prev.some((m) => getId(m) === createdId)) return prev;
-            return [...prev, created];
-          });
-          setDraft("");
-          setPickedMedia(null);
+          await sendCurrentMessage({ forceJoin: true });
           return;
         } catch (retryError) {
-          Alert.alert("Send failed", retryError?.message || "Something went wrong.");
+          Alert.alert(
+            "Send failed",
+            retryError?.message || "Something went wrong.",
+          );
           return;
         }
       }
@@ -332,7 +432,7 @@ export default function ChatPage() {
 
   const currentUserId = user?.id || user?.user_id;
   const isOwnMessage = (message) => {
-    const senderId = message?.sender?.id || message?.sender?.user_id || message?.sender_id;
+    const senderId = getSenderId(message);
     return !!currentUserId && String(senderId) === String(currentUserId);
   };
 
@@ -348,12 +448,14 @@ export default function ChatPage() {
     try {
       await deleteMessage(spaceId, messageId);
       setMessages((prev) => prev.filter((msg) => getId(msg) !== messageId));
-      await refreshMessages();
       if (socketRef.current) {
         socketRef.current.emit("delete_message", { spaceId, messageId });
       }
     } catch (error) {
-      Alert.alert("Delete failed", error?.message || "Unable to delete message.");
+      Alert.alert(
+        "Delete failed",
+        error?.message || "Unable to delete message.",
+      );
     }
   };
 
@@ -368,12 +470,12 @@ export default function ChatPage() {
           if (typeof updated?.appreciated === "boolean") {
             const nextCount = Math.max(
               0,
-              getLikeCount(msg) + (updated.appreciated ? 1 : -1)
+              getLikeCount(msg) + (updated.appreciated ? 1 : -1),
             );
             return { ...msg, ...updated, appreciation_count: nextCount };
           }
           return { ...msg, ...updated };
-        })
+        }),
       );
       if (socketRef.current) {
         socketRef.current.emit("like_message", { spaceId, messageId });
@@ -396,33 +498,26 @@ export default function ChatPage() {
   return (
     <Screen>
       <View style={styles.top}>
-        <View style={styles.titleRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.push("/(tabs)")}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.push("/(tabs)")}
+          >
             <Ionicons name="arrow-back" size={28} color="#111" />
           </TouchableOpacity>
-          <View style={styles.titleWrap}>
-            <Text style={styles.title}>{headerTitleFirstLine}</Text>
-          </View>
+          <Text style={styles.headerTitle}>Chat</Text>
         </View>
-        {headerTitleOverflow ? (
-          <Text style={styles.titleOverflow}>{headerTitleOverflow}</Text>
-        ) : null}
-        <View style={styles.descriptionWrap}>
-          <ScrollView
-            style={styles.descriptionScroll}
-            contentContainerStyle={styles.descriptionScrollContent}
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled
-          >
-            <Text style={styles.titleDescription}>
-              {resolvedDescription || "No description available."}
-            </Text>
-          </ScrollView>
-        </View>
-      </View>
-
-      <View style={styles.topic}>
-        <Text style={styles.topicText}>Conversation</Text>
+        <ScrollView
+          style={styles.headerScroll}
+          contentContainerStyle={styles.headerScrollContent}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          <Text style={styles.title}>{headerTitleFirstLine}</Text>
+          {headerTitleOverflow ? (
+            <Text style={styles.titleOverflow}>{headerTitleOverflow}</Text>
+          ) : null}
+        </ScrollView>
       </View>
 
       <ScrollView
@@ -430,55 +525,103 @@ export default function ChatPage() {
         style={styles.chatArea}
         contentContainerStyle={styles.chatContent}
         showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        scrollEnabled={!mediaGestureActive}
+        onContentSizeChange={() =>
+          scrollRef.current?.scrollToEnd({ animated: true })
+        }
       >
-        {messages.map((message, index) => (
-          <View key={`${getId(message) || "msg"}-${index}`} style={styles.messageRow}>
-            <View style={styles.bubble}>
-              <Text style={styles.senderName}>@{message?.sender?.username || "user"}</Text>
+        {messages.map((message, index) => {
+          const mediaKind = getMediaKind(message);
+          return (
+            <View
+              key={`${getId(message) || "msg"}-${index}`}
+              style={styles.messageRow}
+            >
+              <View style={styles.bubble}>
+                <Text style={styles.senderName}>
+                  @{message?.sender?.username || "user"}
+                </Text>
 
-              {message?.media_url && message?.media_type === "image" ? (
-                <View style={styles.imageWrap}>
-                  <TouchableOpacity onPress={() => setExpandedImageUri(message.media_url)}>
-                    <Image source={{ uri: message.media_url }} style={styles.mediaImage} contentFit="cover" />
+                {message?.media_url && mediaKind === "image" ? (
+                  <View style={styles.imageWrap}>
+                    <TouchableOpacity
+                      onPress={() => setExpandedImageUri(message.media_url)}
+                    >
+                      <Image
+                        source={{ uri: message.media_url }}
+                        style={styles.mediaImage}
+                        contentFit="cover"
+                      />
+                    </TouchableOpacity>
+                    {message?.content || message?.text ? (
+                      <Text style={styles.captionText}>
+                        {message?.content || message?.text}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <Text style={styles.messageText}>
+                    {message?.content || message?.text || ""}
+                  </Text>
+                )}
+
+                {message?.media_url && mediaKind === "video" ? (
+                  <InlinePlayer
+                    uri={message.media_url}
+                    onGestureStart={() => setMediaGestureActive(true)}
+                    onGestureEnd={() => setMediaGestureActive(false)}
+                  />
+                ) : null}
+                {message?.media_url && mediaKind === "audio" ? (
+                  <InlinePlayer
+                    uri={message.media_url}
+                    isAudio
+                    onGestureStart={() => setMediaGestureActive(true)}
+                    onGestureEnd={() => setMediaGestureActive(false)}
+                  />
+                ) : null}
+
+                <View style={styles.messageActions}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => onLikeMessage(message)}
+                  >
+                    <Ionicons name="heart-outline" size={16} color="#111" />
+                    <Text style={styles.actionText}>
+                      {getLikeCount(message)}
+                    </Text>
                   </TouchableOpacity>
-                  {(message?.content || message?.text) ? (
-                    <Text style={styles.captionText}>{message?.content || message?.text}</Text>
+                  {isOwnMessage(message) ? (
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => onDeleteMessage(message)}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color="#9c1028"
+                      />
+                      <Text style={[styles.actionText, styles.deleteText]}>
+                        Delete
+                      </Text>
+                    </TouchableOpacity>
                   ) : null}
                 </View>
-              ) : (
-                <Text style={styles.messageText}>{message?.content || message?.text || ""}</Text>
-              )}
-
-              {message?.media_url && message?.media_type === "video" ? (
-                <InlinePlayer uri={message.media_url} />
-              ) : null}
-              {message?.media_url && message?.media_type === "audio" ? (
-                <InlinePlayer uri={message.media_url} isAudio />
-              ) : null}
-
-              <View style={styles.messageActions}>
-                <TouchableOpacity style={styles.actionButton} onPress={() => onLikeMessage(message)}>
-                  <Ionicons name="heart-outline" size={16} color="#111" />
-                  <Text style={styles.actionText}>{getLikeCount(message)}</Text>
-                </TouchableOpacity>
-                {isOwnMessage(message) ? (
-                  <TouchableOpacity style={styles.actionButton} onPress={() => onDeleteMessage(message)}>
-                    <Ionicons name="trash-outline" size={16} color="#9c1028" />
-                    <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
-                  </TouchableOpacity>
-                ) : null}
               </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       {pickedMedia ? (
         <View style={styles.previewWrap}>
           <Text style={styles.previewTitle}>Attachment ready</Text>
           {pickedMedia.mediaType === "image" ? (
-            <Image source={{ uri: pickedMedia.uri }} style={styles.previewImage} contentFit="cover" />
+            <Image
+              source={{ uri: pickedMedia.uri }}
+              style={styles.previewImage}
+              contentFit="cover"
+            />
           ) : (
             <Text style={styles.previewText}>{pickedMedia.fileName}</Text>
           )}
@@ -504,13 +647,28 @@ export default function ChatPage() {
         </TouchableOpacity>
       </View>
 
-      <Modal visible={!!expandedImageUri} transparent animationType="fade" onRequestClose={() => setExpandedImageUri(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setExpandedImageUri(null)}>
-          <Pressable style={styles.modalContent} onPress={() => {}}>
+      <Modal
+        visible={!!expandedImageUri}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExpandedImageUri(null)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setExpandedImageUri(null)}
+        >
+          <Pressable style={styles.modalContent} onPress={() => { }}>
             {expandedImageUri ? (
-              <Image source={{ uri: expandedImageUri }} style={styles.expandedImage} contentFit="contain" />
+              <Image
+                source={{ uri: expandedImageUri }}
+                style={styles.expandedImage}
+                contentFit="contain"
+              />
             ) : null}
-            <TouchableOpacity style={styles.closeButtonModal} onPress={() => setExpandedImageUri(null)}>
+            <TouchableOpacity
+              style={styles.closeButtonModal}
+              onPress={() => setExpandedImageUri(null)}
+            >
               <Text style={styles.closeButtonText}>Close</Text>
             </TouchableOpacity>
           </Pressable>
@@ -521,49 +679,237 @@ export default function ChatPage() {
 }
 
 const styles = StyleSheet.create({
-  loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
+  loadingWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
   loadingText: { fontSize: 18, color: "#111", fontWeight: "700" },
-  top: { backgroundColor: "#27a6fd", paddingHorizontal: 14, paddingBottom: 12, paddingTop: 34, borderBottomWidth: 3, borderColor: "#111", height: 190 },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  backButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 8, marginRight: 10 },
-  titleWrap: { flex: 1, justifyContent: "center", paddingRight: 6 },
-  title: { fontSize: 22, lineHeight: 26, color: "#111", fontFamily: "Outfit_700Bold", flexShrink: 1, paddingRight: 8 },
-  titleOverflow: { marginTop: 6, fontSize: 22, lineHeight: 26, color: "#111", fontFamily: "Outfit_700Bold" },
-  descriptionWrap: { marginTop: 8, flex: 1, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.2)", paddingTop: 6 },
-  descriptionScroll: { flex: 1 },
-  descriptionScrollContent: { paddingBottom: 2 },
-  titleDescription: { fontSize: 13, lineHeight: 18, color: "#1f1f1f", fontFamily: "Outfit_400Regular", opacity: 0.92 },
-  topic: { backgroundColor: "#feda00", borderWidth: 3, borderTopWidth: 0, borderColor: "#111", paddingVertical: 12 },
-  topicText: { fontSize: 28, color: "#111", marginLeft: 14, fontFamily: "Outfit_700Bold" },
+  top: {
+    backgroundColor: "#27a6fd",
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    paddingTop: 34,
+    borderBottomWidth: 3,
+    borderColor: "#111",
+    height: 180,
+  },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  backButton: {
+    backgroundColor: "#feda00",
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
+  },
+  headerTitle: { fontSize: 24, color: "#111", fontFamily: "Outfit_700Bold" },
+  headerScroll: {
+    marginTop: 8,
+    flex: 1,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.2)",
+  },
+  headerScrollContent: { paddingTop: 6, paddingRight: 6, paddingBottom: 2 },
+  title: {
+    fontSize: 22,
+    lineHeight: 26,
+    color: "#111",
+    fontFamily: "Outfit_700Bold",
+    flexShrink: 1,
+    paddingRight: 8,
+  },
+  titleOverflow: {
+    marginTop: 6,
+    fontSize: 22,
+    lineHeight: 26,
+    color: "#111",
+    fontFamily: "Outfit_700Bold",
+  },
   chatArea: { flex: 1, backgroundColor: "white" },
   chatContent: { padding: 14, gap: 10 },
-  messageRow: { alignSelf: "stretch", marginBottom: 8, alignItems: "flex-start" },
-  bubble: { maxWidth: "90%", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: "#dedede" },
-  senderName: { fontSize: 16, color: "#111", fontFamily: "Outfit_700Bold", marginBottom: 4 },
-  messageText: { fontSize: 20, lineHeight: 29, color: "#111", fontFamily: "Outfit_600SemiBold", flexWrap: "wrap", flexShrink: 1 },
-  messageActions: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 12 },
-  actionButton: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 2 },
+  messageRow: {
+    alignSelf: "stretch",
+    marginBottom: 8,
+    alignItems: "flex-start",
+  },
+	bubble: {
+		width: "96%",
+		borderWidth: 3,
+		borderColor: "#111",
+		borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#dedede",
+  },
+  senderName: {
+    fontSize: 16,
+    color: "#111",
+    fontFamily: "Outfit_700Bold",
+    marginBottom: 4,
+  },
+  messageText: {
+    fontSize: 20,
+    lineHeight: 29,
+    color: "#111",
+    fontFamily: "Outfit_600SemiBold",
+    flexWrap: "wrap",
+    flexShrink: 1,
+  },
+  messageActions: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 2,
+  },
   actionText: { fontSize: 13, color: "#111", fontFamily: "Outfit_600SemiBold" },
   deleteText: { color: "#9c1028" },
-  imageWrap: { width: 270, alignSelf: "flex-start" },
-  mediaImage: { width: 270, height: 210, borderRadius: 12, marginTop: 6, borderWidth: 2, borderColor: "#111" },
-  captionText: { marginTop: 8, fontSize: 19, lineHeight: 27, color: "#111", fontFamily: "Outfit_600SemiBold", flexWrap: "wrap", flexShrink: 1 },
-  videoWrap: { marginTop: 8, width: 270, borderWidth: 2, borderColor: "#111", borderRadius: 12, overflow: "hidden", backgroundColor: "#000" },
-  videoPlayer: { width: "100%", height: 220 },
-  audioWrap: { marginTop: 8, width: 270, borderWidth: 2, borderColor: "#111", borderRadius: 12, overflow: "hidden", backgroundColor: "#fff" },
+  imageWrap: { width: CHAT_MEDIA_WIDTH, alignSelf: "center" },
+  mediaImage: {
+    width: CHAT_MEDIA_WIDTH,
+    height: CHAT_MEDIA_HEIGHT,
+    borderRadius: 12,
+    marginTop: 6,
+    borderWidth: 2,
+    borderColor: "#111",
+  },
+  captionText: {
+    marginTop: 8,
+    fontSize: 19,
+    lineHeight: 27,
+    color: "#111",
+    fontFamily: "Outfit_600SemiBold",
+    flexWrap: "wrap",
+    flexShrink: 1,
+  },
+	videoWrap: {
+		marginTop: 8,
+		width: CHAT_MEDIA_WIDTH,
+		alignSelf: "center",
+		borderWidth: 2,
+		borderColor: "#111",
+		borderRadius: 12,
+		backgroundColor: "#000",
+	},
+	videoPlayer: { width: "100%", height: CHAT_MEDIA_HEIGHT },
+  audioWrap: {
+    marginTop: 8,
+    width: 270,
+    borderWidth: 2,
+    borderColor: "#111",
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+  },
   audioPlayer: { width: "100%", height: 64 },
-  previewWrap: { backgroundColor: "#fff9d6", borderTopWidth: 2, borderColor: "#111", paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
-  previewTitle: { fontSize: 13, color: "#333", fontFamily: "Outfit_600SemiBold" },
-  previewImage: { width: 120, height: 80, borderRadius: 8, borderWidth: 2, borderColor: "#111" },
+  previewWrap: {
+    backgroundColor: "#fff9d6",
+    borderTopWidth: 2,
+    borderColor: "#111",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  previewTitle: {
+    fontSize: 13,
+    color: "#333",
+    fontFamily: "Outfit_600SemiBold",
+  },
+  previewImage: {
+    width: 120,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#111",
+  },
   previewText: { fontSize: 13, color: "#111", fontFamily: "Outfit_400Regular" },
-  previewRemove: { fontSize: 13, color: "#9c1028", fontFamily: "Outfit_700Bold" },
-  inputWrap: { backgroundColor: "#fc56aa", borderTopWidth: 3, borderColor: "#111", flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, gap: 10, paddingBottom:30 },
-  attachButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 10, justifyContent: "center", alignItems: "center" },
-  input: { flex: 1, backgroundColor: "#fff", borderWidth: 3, borderColor: "#111", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 19, fontFamily: "Outfit_600SemiBold", color: "#111" },
-  sendButton: { backgroundColor: "#feda00", borderWidth: 3, borderColor: "#111", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, justifyContent: "center", alignItems: "center" },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "center", alignItems: "center", padding: 16 },
-  modalContent: { width: "100%", maxWidth: 420, backgroundColor: "#111", borderRadius: 12, borderWidth: 2, borderColor: "#fff", padding: 10, alignItems: "center", gap: 10 },
-  expandedImage: { width: "100%", height: 420, borderRadius: 10, backgroundColor: "#000" },
-  closeButtonModal: { borderWidth: 2, borderColor: "#111", borderRadius: 8, backgroundColor: "#feda00", paddingHorizontal: 12, paddingVertical: 6 },
+  previewRemove: {
+    fontSize: 13,
+    color: "#9c1028",
+    fontFamily: "Outfit_700Bold",
+  },
+  inputWrap: {
+    backgroundColor: "#fc56aa",
+    borderTopWidth: 3,
+    borderColor: "#111",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+    paddingBottom: 30,
+  },
+  attachButton: {
+    backgroundColor: "#feda00",
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  input: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 19,
+    fontFamily: "Outfit_600SemiBold",
+    color: "#111",
+  },
+  sendButton: {
+    backgroundColor: "#feda00",
+    borderWidth: 3,
+    borderColor: "#111",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#111",
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#fff",
+    padding: 10,
+    alignItems: "center",
+    gap: 10,
+  },
+  expandedImage: {
+    width: "100%",
+    height: 420,
+    borderRadius: 10,
+    backgroundColor: "#000",
+  },
+  closeButtonModal: {
+    borderWidth: 2,
+    borderColor: "#111",
+    borderRadius: 8,
+    backgroundColor: "#feda00",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
   closeButtonText: { color: "#111", fontFamily: "Outfit_700Bold" },
-});
+  });
