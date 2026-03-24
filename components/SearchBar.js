@@ -1,14 +1,14 @@
-import { View, Text, TextInput } from "react-native";
-import { react, useState } from "react";
+import { useState } from "react";
+import { TextInput, View } from "react-native";
 export default function SearchBar() {
-  const { query, setQuery } = useState("");
-  return (
-    <View>
-      <TextInput
-        value={query}
-        onChange={setQuery}
-        placeholder="Search..."
-      ></TextInput>
-    </View>
-  );
+	const [query, setQuery] = useState("");
+	return (
+		<View>
+			<TextInput
+				value={query}
+				onChangeText={setQuery}
+				placeholder="Search..."
+			></TextInput>
+		</View>
+	);
 }
